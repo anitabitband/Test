@@ -1,0 +1,3 @@
+include *.txt *.ini *.cfg *.rst *.wsgi *.sh *.spec *.py
+recursive-include yoink *.py
+recursive-include docs *

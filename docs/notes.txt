@@ -1,0 +1,32 @@
+
+* low level routine for NGAS direct copy download
+* low level routing for NGAS streaming download
+
+* get a file by NGAS id:
+    * routine that figures out which server the file is on and
+      calls the low level routines
+
+* get a file by AAT file id:
+    * routine that figures out what the NGAS id is and calls
+      the 'get a file by NGAS id' routine, and renames the
+      result to match what the AAT db says it is
+
+* get a fileset by fileset name:
+    * routine that builds a list of files in the fileset, walks
+      through them and blah
+
+I need a standard way to describe arguments to the low level
+routines and the ability to generate these arguments based on
+what the user wants.
+
+source name
+source location (path, NGAS server, whatever)
+destination name
+destination directory
+expected file size
+
+generalized steps for a yoink request:
+    * look up the missing metadata (filename, ngas_id, whatever)
+    * decompose the request into one or more parts
+    * get all the parts
+        * in parallel if possible & more than one

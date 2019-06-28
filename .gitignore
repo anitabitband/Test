@@ -1,0 +1,12 @@
+*.pyc
+*~
+**/build
+dist
+*.egg-info
+.idea
+atlassian-ide-plugin.xml
+*.iml
+.eggs
+.python-version
+.tox
+.pytest_cache
