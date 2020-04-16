@@ -101,6 +101,12 @@ def get_capo_settings(profile):
 
 
 class LocationsReport:
+    """ A locations report is produced by the archive service, you give
+    it a product locator and it returns a dictionary of details on how
+    to retrieve the product's files from long term storage (NGAS): this
+    class handles fetching the report from the service or reading it from
+    a file, and has utilities to manipulate the report. """
+
     def __init__(self, args, settings):
         self.log = logging.getLogger(self.__class__.__name__)
         self.settings = settings
