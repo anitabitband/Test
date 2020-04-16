@@ -1,39 +1,25 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
 
 """ Module for the command line interface to yoink. """
 
-import os
-import sys
-import argparse
+import logging
 
-
-from yoink import *
-
+from yoink.utilities import get_arg_parser, get_capo_settings, get_location_report
 
 _DIRECT_COPY_PLUGIN_DEFAULT = 'ngamsDirectCopyDppi'
-_PROLOGUE = \
-    """This is my prologue"""
-_EPILOGUE = \
-    """This is my epilogue"""
-
-
-
-def get_parser():
-    """ Build and return an argument parser with the command line options for yoink; this is
-        out here and not in a class because Sphinx needs it to build the docs. """
-    parser = argparse.ArgumentParser(description=_PROLOGUE, epilog=_EPILOGUE,
-                                     formatter_class=argparse.RawTextHelpFormatter)
-    # Can't find a way of clearing the action groups without hitting an internal attribute.
-    parser._action_groups.pop()
-    required_group = parser.add_argument_group('Required Arguments')
-    optional_group = parser.add_argument_group('Optional Arguments')
-    return parser
 
 
 def main():
-    parser = get_parser()
+    parser = get_arg_parser()
     args = parser.parse_args()
+
+    logging.basicConfig(level=logging.DEBUG) if args.verbose else \
+        logging.basicConfig(level=logging.WARN)
+    settings = get_capo_settings(args.profile)
+    report = get_location_report(settings=settings,
+                                 product_locator=args.product_locator,
+                                 location_file=args.location_file)
+    logging.error(str(report))
 
 
 if __name__ == '__main__':

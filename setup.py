@@ -12,23 +12,13 @@ with open(os.path.join(HERE, 'README.md')) as f:
     README = f.read()
 
 INSTALL_REQUIRES = [
-    'requests>=2.6.0',
-    'Sphinx>=1.3',
-    'sphinx_rtd_theme>=0.1.7',
-    'pycapo==0.2.0',
-    'mysqlclient==1.3.10',
-    'sqlacodegen==1.1.6',
-    'SQLAlchemy==1.2.1',
-    'zope.sqlalchemy==0.7.7',
-    'psycopg2==2.7.3'
+    'requests==2.23.0',
+    'Sphinx==3.0.1',
+    'sphinx-rtd-theme==0.4.3',
+    'pycapo==0.2.1.post1'
 ]
 
 TEST_REQUIRES = [
-    'tox==3.1.3',
-    'tox-pyenv==1.1.0',
-    'pyinstaller==3.2',
-    'pytest==3.7.0',
-    'pytest-runner==4.2'
 ]
 
 NAME = 'yoink'
