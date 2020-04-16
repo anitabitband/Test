@@ -10,6 +10,7 @@ import sys
 import argparse
 import requests
 import json
+import copy
 from enum import Enum
 
 from pycapo import *
@@ -129,12 +130,41 @@ class LocationReport:
         self.settings = settings
         self.product_locator = product_locator
         self.location_file = location_file
-        self.location_report = self._get_location_report()
+        self.files_report = self._get_files_report()
+        self.servers_report = self._get_servers_report()
 
-    def order_by_server(self):
-        pass
+    def _get_servers_report(self):
+        """ The location report we get back looks like this, for each file:
 
-    def _get_location_report(self):
+        {"ngas_file_id":"17B-197_2018_02_19_T15_59_16.097.tar",
+        "subdirectory":"17B-197.sb34812522.eb35115211.58168.58572621528",
+        "relative_path":"17B-197_2018_02_19_T15_59_16.097.tar",
+        "checksum":"-1848259250",
+        "checksum_type":"ngamsGenCrc32",
+        "version":1,
+        "size":108677120,
+        "server":{"server":"nmngas01.aoc.nrao.edu:7777",
+            "location":"DSOC",
+            "cluster":"DSOC"
+        }}
+
+        Re-organize it to group files under servers.
+        """
+        result = dict()
+        for f in self.files_report['files']:
+            new_f = copy.deepcopy(f)
+            del new_f['server']
+            server = f['server']
+            server_host = server['server']
+            if server_host not in result:
+                result[server_host] = dict()
+                result[server_host]['location'] = server['location']
+                result[server_host]['cluster'] = server['cluster']
+                result[server_host]['files'] = list()
+            result[server_host]['files'].append(new_f)
+        return result
+
+    def _get_files_report(self):
         """ Given a product locator or a path to a location file, return a location report,
         an object describing the files that make up the product and where to get them from.
         If neither argument is provided, throw a ValueError, if both are (for some reason)
@@ -150,11 +180,15 @@ class LocationReport:
             return self._get_location_report_from_service()
 
     def _get_location_report_from_file(self):
+        """ Read a file at a user provided path to pull in the location report. """
         try:
             with open(self.location_file) as f:
                 result = json.load(f)
                 return result
         except EnvironmentError:
+            # This broadly catches any exception with opening and reading the
+            # file, but it might not catch exceptions converting to JSON.
+            # ToDo: look into that and add other clauses.
             LOG.error('problem opening file {}'.format(self.location_file))
             terminal_error(Errors.FILE_ERROR)
 

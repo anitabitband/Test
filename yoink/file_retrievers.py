@@ -2,6 +2,7 @@
 
 # Implementations of assorted file retrievers.
 
+
 def ngas_retriever():
     pass
 
