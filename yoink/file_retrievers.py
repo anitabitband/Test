@@ -37,8 +37,10 @@ class NGASFileRetriever:
 
     def _make_basedir(self, destination):
         if not self.dry_run:
+            umask = os.umask(0o777)
             basedir = os.path.dirname(destination)
-            Path(basedir).mkdir(0o777, parents=True, exist_ok=True)
+            Path(basedir).mkdir(parents=True, exist_ok=True)
+            os.umask(umask)
 
     def _check_result(self, destination, file_spec):
         self.log.debug('verifying fetch of {}'.format(destination))
