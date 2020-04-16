@@ -13,8 +13,6 @@ with open(os.path.join(HERE, 'README.md')) as f:
 
 INSTALL_REQUIRES = [
     'requests==2.23.0',
-    'Sphinx==3.0.1',
-    'sphinx-rtd-theme==0.4.3',
     'pycapo==0.2.1.post1'
 ]
 
