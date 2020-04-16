@@ -4,17 +4,7 @@ import logging
 from yoink._version import ___version___ as version
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
+logging.basicConfig(format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+                    level=logging.DEBUG)
+LOG = logging.getLogger(__name__)
 
-
-def get_yoink_logger():
-    result = logging.getLogger('yoink')
-    handler = logging.StreamHandler()
-    formatter = logging.Formatter(
-        '%(asctime)s %(name)-12s %(levelname)-8s %(message)s')
-    handler.setFormatter(formatter)
-    result.addHandler(handler)
-    result.setLevel(logging.DEBUG)
-    return result
-
-
-LOG = get_yoink_logger()

@@ -11,11 +11,12 @@ import argparse
 import requests
 import json
 import copy
+import logging
 from enum import Enum
 
 from pycapo import *
 
-from yoink import LOG
+LOG = logging.getLogger(__name__)
 
 # Prologue and epilogue for the command line parser.
 _PROLOGUE = \
@@ -127,11 +128,26 @@ def get_capo_settings(profile):
 
 class LocationReport:
     def __init__(self, settings, product_locator=None, location_file=None):
+        self.log = logging.getLogger(self.__class__.__name__)
         self.settings = settings
         self.product_locator = product_locator
         self.location_file = location_file
         self.files_report = self._get_files_report()
         self.servers_report = self._get_servers_report()
+
+    def _add_retrieve_method_field(self, files_report):
+        """ This adds a field to the files report about whether we can do
+        a direct copy or we have to rely on streaming: this is something
+        the location service itself doesn't know because it depends on
+        which site yoink is running on, which site has the data and whether
+        the NGAS cluster supports direct copy. """
+        for f in files_report['files']:
+            if f['server']['cluster'] == 'DSOC' and \
+                    f['server']['location'] == self.settings['execution_site']:
+                f['server']['retrieve_method'] = 'copy'
+            else:
+                f['server']['retrieve_method'] = 'stream'
+        return files_report
 
     def _get_servers_report(self):
         """ The location report we get back looks like this, for each file:
@@ -148,7 +164,7 @@ class LocationReport:
             "cluster":"DSOC"
         }}
 
-        Re-organize it to group files under servers.
+        Re-organize it to group files under servers so it is more useful.
         """
         result = dict()
         for f in self.files_report['files']:
@@ -160,6 +176,7 @@ class LocationReport:
                 result[server_host] = dict()
                 result[server_host]['location'] = server['location']
                 result[server_host]['cluster'] = server['cluster']
+                result[server_host]['retrieve_method'] = server['retrieve_method']
                 result[server_host]['files'] = list()
             result[server_host]['files'].append(new_f)
         return result
@@ -172,12 +189,14 @@ class LocationReport:
 
         :return:
         """
+        result = dict()
         if self.product_locator is None and self.location_file is None:
             raise ValueError('product_locator or location_file must be provided, neither were')
         if self.location_file is not None:
-            return self._get_location_report_from_file()
+            result = self._get_location_report_from_file()
         if self.product_locator is not None:
-            return self._get_location_report_from_service()
+            result = self._get_location_report_from_service()
+        return self._add_retrieve_method_field(result)
 
     def _get_location_report_from_file(self):
         """ Read a file at a user provided path to pull in the location report. """
@@ -189,7 +208,7 @@ class LocationReport:
             # This broadly catches any exception with opening and reading the
             # file, but it might not catch exceptions converting to JSON.
             # ToDo: look into that and add other clauses.
-            LOG.error('problem opening file {}'.format(self.location_file))
+            self.log.error('problem opening file {}'.format(self.location_file))
             terminal_error(Errors.FILE_ERROR)
 
     def _get_location_report_from_service(self):
@@ -199,7 +218,7 @@ class LocationReport:
         :return: the location report (from JSON)
         """
         response = None
-        LOG.debug('fetching report from {} for {}'.format(self.settings['locator_service_url'],
+        self.log.debug('fetching report from {} for {}'.format(self.settings['locator_service_url'],
                                                           self.product_locator))
 
         try:
@@ -215,8 +234,8 @@ class LocationReport:
         if response.status_code == 200:
             return response.json()
         elif response.status_code == 404:
-            LOG.error('can not find locator {}'.format(self.product_locator))
+            self.log.error('can not find locator {}'.format(self.product_locator))
             terminal_error(Errors.NO_LOCATOR)
         else:
-            LOG.error('locator service returned {}'.format(response.status_code))
+            self.log.error('locator service returned {}'.format(response.status_code))
             terminal_error(Errors.SERVICE_ERROR)

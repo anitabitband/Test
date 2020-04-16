@@ -2,14 +2,11 @@
 
 # Implementations of assorted file retrievers.
 
+import logging
 
-def ngas_retriever():
-    pass
-
-
-def _ngas_streaming_retriever():
-    pass
+_DIRECT_COPY_PLUGIN = 'ngamsDirectCopyDppi'
 
 
-def _ngas_copying_retriever():
-    pass
+class NGASFileRetriever:
+    def __init__(self):
+        self.log = logging.getLogger(self.__class__.__name__)
