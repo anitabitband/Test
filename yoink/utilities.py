@@ -58,6 +58,8 @@ def get_arg_parser():
     optional_group.add_argument('--output-dir', action='store',
                                 dest='output_dir', default=cwd,
                                 help='output directory, default current directory')
+    optional_group.add_argument('--sdm-only', action='store_true', dest='sdm_only',
+                                help='only get the metadata, not the fringes')
     optional_group.add_argument('--verbose', action='store_true',
                                 required=False, dest='verbose',
                                 help='make a lot of noise')
@@ -99,11 +101,12 @@ def get_capo_settings(profile):
 
 
 class LocationsReport:
-    def __init__(self, settings, product_locator=None, location_file=None):
+    def __init__(self, args, settings):
         self.log = logging.getLogger(self.__class__.__name__)
         self.settings = settings
-        self.product_locator = product_locator
-        self.location_file = location_file
+        self.product_locator = args.product_locator
+        self.location_file = args.location_file
+        self.sdm_only = args.sdm_only
         self.files_report = self._get_files_report()
         self.servers_report = self._get_servers_report()
 
@@ -119,6 +122,20 @@ class LocationsReport:
                 f['server']['retrieve_method'] = 'copy'
             else:
                 f['server']['retrieve_method'] = 'stream'
+        return files_report
+
+    def _filter_sdm_only(self, files_report):
+        """ The user wants only the SDM tables, not the BDFs, so filter
+        everything else out. Note, if they specify SDM-Only and the product
+        is not a EVLA execution block things will go badly for them. """
+        if self.sdm_only:
+            result = list()
+            for f in files_report['files']:
+                relative_path = f['relative_path']
+                if relative_path.endswith('.bin') or \
+                        relative_path.endswith('.xml'):
+                    result.append(f)
+            files_report['files'] = result
         return files_report
 
     def _get_servers_report(self):
@@ -168,6 +185,7 @@ class LocationsReport:
             result = self._get_location_report_from_file()
         if self.product_locator is not None:
             result = self._get_location_report_from_service()
+        result = self._filter_sdm_only(result)
         return self._add_retrieve_method_field(result)
 
     def _get_location_report_from_file(self):

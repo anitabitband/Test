@@ -15,9 +15,7 @@ class Yoink:
         self.log = logging.getLogger(self.__class__.__name__)
         self.args = args
         self.settings = settings
-        self.locations_report = LocationsReport(settings=self.settings,
-                                                product_locator=self.args.product_locator,
-                                                location_file=self.args.location_file)
+        self.locations_report = LocationsReport(args, settings)
         self.servers_report = self.locations_report.servers_report
 
     def run(self):
