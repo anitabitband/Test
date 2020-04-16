@@ -3,10 +3,9 @@
 """ Module for the command line interface to yoink. """
 
 import logging
-import pprint
 
-from yoink.utilities import get_arg_parser, get_capo_settings, LocationReport
 from yoink.product_fetchers import SerialProductFetcher
+from yoink.utilities import get_arg_parser, get_capo_settings, LocationsReport
 
 LOG = logging.getLogger(__name__)
 
@@ -16,10 +15,10 @@ class Yoink:
         self.log = logging.getLogger(self.__class__.__name__)
         self.args = args
         self.settings = settings
-        self.location_report = LocationReport(settings=self.settings,
-                                              product_locator=self.args.product_locator,
-                                              location_file=self.args.location_file)
-        self.servers_report = self.location_report.servers_report
+        self.locations_report = LocationsReport(settings=self.settings,
+                                                product_locator=self.args.product_locator,
+                                                location_file=self.args.location_file)
+        self.servers_report = self.locations_report.servers_report
 
     def run(self):
         fetcher = SerialProductFetcher(self.args, self.settings,

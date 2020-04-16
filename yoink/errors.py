@@ -17,6 +17,8 @@ class Errors(Enum):
     SERVICE_ERROR = 5
     NO_LOCATOR = 6
     FILE_ERROR = 7
+    NGAS_ERROR = 8
+    SIZE_MISMATCH = 9
 
 
 TERMINAL_ERRORS = {
@@ -26,7 +28,9 @@ TERMINAL_ERRORS = {
     Errors.SERVICE_REDIRECTS: 'too many redirects on locator service',
     Errors.SERVICE_ERROR: 'catastrophic error on request service',
     Errors.NO_LOCATOR: 'product locator not found',
-    Errors.FILE_ERROR: 'not able to open specified location file'
+    Errors.FILE_ERROR: 'not able to open specified location file',
+    Errors.NGAS_ERROR: 'error fetching file from NGAS server',
+    Errors.SIZE_MISMATCH: 'retrieved file not expected size'
 }
 
 

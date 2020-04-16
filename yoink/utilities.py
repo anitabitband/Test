@@ -98,7 +98,7 @@ def get_capo_settings(profile):
     return result
 
 
-class LocationReport:
+class LocationsReport:
     def __init__(self, settings, product_locator=None, location_file=None):
         self.log = logging.getLogger(self.__class__.__name__)
         self.settings = settings
