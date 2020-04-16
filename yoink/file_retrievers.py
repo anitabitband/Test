@@ -37,7 +37,7 @@ class NGASFileRetriever:
 
     def _make_basedir(self, destination):
         if not self.dry_run:
-            umask = os.umask(0o777)
+            umask = os.umask(0o000)
             basedir = os.path.dirname(destination)
             Path(basedir).mkdir(parents=True, exist_ok=True)
             os.umask(umask)
