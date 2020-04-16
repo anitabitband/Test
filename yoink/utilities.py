@@ -5,16 +5,17 @@
 # so on.
 
 
-import os
-import sys
 import argparse
-import requests
-import json
 import copy
+import json
 import logging
-from enum import Enum
+import os
+import pathlib
 
+import requests
 from pycapo import *
+
+from yoink.errors import terminal_error, Errors, get_error_descriptions
 
 LOG = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ _PROLOGUE = \
     """Retrieve a product (a science product or an ancillary product) from the NRAO archive,
 either by specifying the product's locator or by providing the path to a product
 locator report."""
-_EPILOGUE = 'Return Codes:\n'
+_EPILOGUE = get_error_descriptions()
 
 # This is a dictionary of required CAPO settings and the attribute names we'll store them as.
 REQUIRED_SETTINGS = {
@@ -32,45 +33,13 @@ REQUIRED_SETTINGS = {
 }
 
 
-class Errors(Enum):
-    NO_PROFILE = 1
-    MISSING_SETTING = 2
-    SERVICE_TIMEOUT = 3
-    SERVICE_REDIRECTS = 4
-    SERVICE_ERROR = 5
-    NO_LOCATOR = 6
-    FILE_ERROR = 7
-
-
-TERMINAL_ERRORS = {
-    Errors.NO_PROFILE: 'no CAPO profile provided',
-    Errors.MISSING_SETTING: 'missing required setting',
-    Errors.SERVICE_TIMEOUT: 'request to locator service timed out',
-    Errors.SERVICE_REDIRECTS: 'too many redirects on locator service',
-    Errors.SERVICE_ERROR: 'catastrophic error on request service',
-    Errors.NO_LOCATOR: 'product locator not found',
-    Errors.FILE_ERROR: 'not able to open specified location file'
-}
-
-for error in Errors:
-    _EPILOGUE += '\t{}: {}\n'.format(error.value, TERMINAL_ERRORS[error])
-
-
-def terminal_error(errno):
-    if errno in TERMINAL_ERRORS:
-        LOG.error(TERMINAL_ERRORS[errno])
-    else:
-        LOG.error('unspecified error {}'.format(errno))
-
-    sys.exit(errno.value)
-
-
 def get_arg_parser():
     """ Build and return an argument parser with the command line options for yoink; this is
         out here and not in a class because Sphinx needs it to build the docs.
 
     :return: an argparse 'parser' with command line options for yoink.
     """
+    cwd = pathlib.Path().absolute()
     parser = argparse.ArgumentParser(description=_PROLOGUE, epilog=_EPILOGUE,
                                      formatter_class=argparse.RawTextHelpFormatter)
     # Can't find a way of clearing the action groups without hitting an internal attribute.
@@ -85,7 +54,10 @@ def get_arg_parser():
     optional_group = parser.add_argument_group('Optional Arguments')
     optional_group.add_argument('--dry-run', action='store_true',
                                 dest='dry_run', default=False,
-                                help='dry run, do not down the files')
+                                help='dry run, do not fetch product')
+    optional_group.add_argument('--output-dir', action='store',
+                                dest='output_dir', default=cwd,
+                                help='output directory, default current directory')
     optional_group.add_argument('--verbose', action='store_true',
                                 required=False, dest='verbose',
                                 help='make a lot of noise')
@@ -187,7 +159,7 @@ class LocationReport:
         If neither argument is provided, throw a ValueError, if both are (for some reason)
         then the location file takes precedence.
 
-        :return:
+        :return: location report (from file, in JSON)
         """
         result = dict()
         if self.product_locator is None and self.location_file is None:
@@ -214,12 +186,11 @@ class LocationReport:
     def _get_location_report_from_service(self):
         """ Use 'requests' to fetch the location report from the locator service.
 
-        :param product_locator: the product locator to look up
-        :return: the location report (from JSON)
+        :return: location report (from locator service, in JSON)
         """
         response = None
         self.log.debug('fetching report from {} for {}'.format(self.settings['locator_service_url'],
-                                                          self.product_locator))
+                                                               self.product_locator))
 
         try:
             response = requests.get(self.settings['locator_service_url'],

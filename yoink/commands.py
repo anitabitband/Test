@@ -5,8 +5,8 @@
 import logging
 import pprint
 
-from yoink import LOG
 from yoink.utilities import get_arg_parser, get_capo_settings, LocationReport
+from yoink.product_fetchers import SerialProductFetcher
 
 LOG = logging.getLogger(__name__)
 
@@ -19,10 +19,12 @@ class Yoink:
         self.location_report = LocationReport(settings=self.settings,
                                               product_locator=self.args.product_locator,
                                               location_file=self.args.location_file)
+        self.servers_report = self.location_report.servers_report
 
     def run(self):
-        pp = pprint.PrettyPrinter(indent=4)
-        self.log.error(pp.pformat(self.location_report.servers_report))
+        fetcher = SerialProductFetcher(self.args, self.settings,
+                                       self.servers_report)
+        fetcher.run()
 
 
 def main():
