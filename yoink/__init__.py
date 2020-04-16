@@ -5,8 +5,6 @@ from yoink._version import ___version___ as version
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
-LOG = None
-
 
 def get_yoink_logger():
     result = logging.getLogger('yoink')

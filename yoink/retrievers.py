@@ -5,8 +5,10 @@
 def ngas_retriever():
     pass
 
+
 def _ngas_streaming_retriever():
     pass
+
 
 def _ngas_copying_retriever():
     pass

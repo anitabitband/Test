@@ -21,8 +21,7 @@ _PROLOGUE = \
     """Retrieve a product (a science product or an ancillary product) from the NRAO archive,
 either by specifying the product's locator or by providing the path to a product
 locator report."""
-_EPILOGUE = \
-    """This is my epilogue"""
+_EPILOGUE = 'Return Codes:\n'
 
 # This is a dictionary of required CAPO settings and the attribute names we'll store them as.
 REQUIRED_SETTINGS = {
@@ -50,6 +49,9 @@ TERMINAL_ERRORS = {
     Errors.NO_LOCATOR: 'product locator not found',
     Errors.FILE_ERROR: 'not able to open specified location file'
 }
+
+for error in Errors:
+    _EPILOGUE += '\t{}: {}\n'.format(error.value, TERMINAL_ERRORS[error])
 
 
 def terminal_error(errno):
@@ -108,6 +110,7 @@ def get_capo_settings(profile):
         terminal_error(Errors.NO_PROFILE)
     c = CapoConfig(profile=profile)
     for setting in REQUIRED_SETTINGS:
+        value = None
         setting = setting.upper()
         LOG.debug('looking for setting {}'.format(setting))
         try:

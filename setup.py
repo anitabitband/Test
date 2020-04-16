@@ -21,14 +21,10 @@ INSTALL_REQUIRES = [
 TEST_REQUIRES = [
 ]
 
-NAME = 'yoink'
-HERE = os.path.abspath(os.path.dirname(__file__))
-with open(os.path.join(HERE, NAME, '_version.py')) as f:
-    VERSION = f.readlines()[-1].split()[-1].strip("\"'")
 setup(
     name=NAME,
     version=VERSION,
-    description='grab files from NGAS',
+    description='grab files from NRAO Archive',
     long_description=README,
     author='Stephan Witz',
     author_email='switz@nrao.edu',
