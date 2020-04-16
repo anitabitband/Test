@@ -4,7 +4,7 @@
 
 import logging
 
-from yoink.utilities import get_arg_parser, get_capo_settings, get_location_report
+from yoink.utilities import get_arg_parser, get_capo_settings, LocationReport
 
 _DIRECT_COPY_PLUGIN_DEFAULT = 'ngamsDirectCopyDppi'
 
@@ -16,10 +16,10 @@ def main():
     logging.basicConfig(level=logging.DEBUG) if args.verbose else \
         logging.basicConfig(level=logging.WARN)
     settings = get_capo_settings(args.profile)
-    report = get_location_report(settings=settings,
-                                 product_locator=args.product_locator,
-                                 location_file=args.location_file)
-    logging.error(str(report))
+    report = LocationReport(settings=settings,
+                            product_locator=args.product_locator,
+                            location_file=args.location_file)
+    logging.error(str(report.location_report))
 
 
 if __name__ == '__main__':

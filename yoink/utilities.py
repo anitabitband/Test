@@ -60,7 +60,7 @@ def terminal_error(errno):
     else:
         LOG.error('unspecified error {}'.format(errno))
 
-    sys.exit(errno)
+    sys.exit(errno.value)
 
 
 def get_arg_parser():
@@ -124,60 +124,65 @@ def get_capo_settings(profile):
     return result
 
 
-def get_location_report(settings, product_locator=None, location_file=None):
-    """ Given a product locator or a path to a location file, return a location report,
-    an object describing the files that make up the product and where to get them from.
-    If neither argument is provided, throw a ValueError, if both are (for some reason)
-    then the location file takes precedence.
+class LocationReport:
+    def __init__(self, settings, product_locator=None, location_file=None):
+        self.settings = settings
+        self.product_locator = product_locator
+        self.location_file = location_file
+        self.location_report = self._get_location_report()
 
-    :param settings: required CAPO settings for yoink
-    :param product_locator:
-    :param location_file:
-    :return:
-    """
-    if product_locator is None and location_file is None:
-        raise ValueError('product_locator or location_file must be provided, neither were')
-    if location_file is not None:
-        return _get_location_report_from_file(location_file)
-    if product_locator is not None:
-        return _get_location_report_from_service(settings, product_locator)
+    def order_by_server(self):
+        pass
 
+    def _get_location_report(self):
+        """ Given a product locator or a path to a location file, return a location report,
+        an object describing the files that make up the product and where to get them from.
+        If neither argument is provided, throw a ValueError, if both are (for some reason)
+        then the location file takes precedence.
 
-def _get_location_report_from_file(location_file):
-    try:
-        with open(location_file) as f:
-            result = json.load(f)
-            return result
-    except EnvironmentError:
-        LOG.error('problem opening file {}'.format(location_file))
-        terminal_error(Errors.FILE_ERROR)
+        :return:
+        """
+        if self.product_locator is None and self.location_file is None:
+            raise ValueError('product_locator or location_file must be provided, neither were')
+        if self.location_file is not None:
+            return self._get_location_report_from_file()
+        if self.product_locator is not None:
+            return self._get_location_report_from_service()
 
+    def _get_location_report_from_file(self):
+        try:
+            with open(self.location_file) as f:
+                result = json.load(f)
+                return result
+        except EnvironmentError:
+            LOG.error('problem opening file {}'.format(self.location_file))
+            terminal_error(Errors.FILE_ERROR)
 
-def _get_location_report_from_service(settings, product_locator):
-    """ Use 'requests' to fetch the location report from the locator service.
+    def _get_location_report_from_service(self):
+        """ Use 'requests' to fetch the location report from the locator service.
 
-    :param product_locator: the product locator to look up
-    :return: the location report (from JSON)
-    """
-    response = None
-    LOG.debug('fetching report from {} for {}'.format(settings['locator_service_url'],
-                                                      product_locator))
+        :param product_locator: the product locator to look up
+        :return: the location report (from JSON)
+        """
+        response = None
+        LOG.debug('fetching report from {} for {}'.format(self.settings['locator_service_url'],
+                                                          self.product_locator))
 
-    try:
-        response = requests.get(settings['locator_service_url'],
-                                params={'locator': product_locator})
-    except requests.exceptions.Timeout:
-        terminal_error(Errors.SERVICE_TIMEOUT)
-    except requests.exceptions.TooManyRedirects:
-        terminal_error(Errors.SERVICE_REDIRECTS)
-    except requests.exceptions.RequestException:
-        terminal_error(Errors.SERVICE_ERROR)
+        try:
+            response = requests.get(self.settings['locator_service_url'],
+                                    params={'locator': self.product_locator})
+        except requests.exceptions.Timeout:
+            terminal_error(Errors.SERVICE_TIMEOUT)
+        except requests.exceptions.TooManyRedirects:
+            terminal_error(Errors.SERVICE_REDIRECTS)
+        except requests.exceptions.RequestException:
+            terminal_error(Errors.SERVICE_ERROR)
 
-    if response.status_code == 200:
-        return response.json()
-    elif response.status_code == 404:
-        LOG.error('can not find locator {}'.format(product_locator))
-        terminal_error(Errors.NO_LOCATOR)
-    else:
-        LOG.error('locator service returned {}'.format(response.status_code))
-        terminal_error(Errors.SERVICE_ERROR)
+        if response.status_code == 200:
+            return response.json()
+        elif response.status_code == 404:
+            LOG.error('can not find locator {}'.format(self.product_locator))
+            terminal_error(Errors.NO_LOCATOR)
+        else:
+            LOG.error('locator service returned {}'.format(response.status_code))
+            terminal_error(Errors.SERVICE_ERROR)
