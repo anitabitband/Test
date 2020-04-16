@@ -50,9 +50,18 @@ class NGASFileRetriever:
 
     def _copying_fetch(self, download_url, destination, file_spec):
         params = {'file_id': file_spec['ngas_file_id'],
+                  'processing': 'ngamsDirectCopyDppi',
+                  'processingPars': 'outfile=' + destination,
                   'file_version': file_spec['version']}
         self.log.debug('attempting copying download:\nurl: {}\ndestination: {}'
                        .format(download_url, destination))
+        if not self.dry_run:
+            with requests.Session() as s:
+                r = s.get(download_url, params=params)
+
+                if r.status_code != requests.codes.ok:
+                    self.log.error('bad status code {}'.format(r.status_code))
+                    terminal_error(Errors.NGAS_ERROR)
 
     def _streaming_fetch(self, download_url, destination, file_spec):
         params = {'file_id': file_spec['ngas_file_id'],
