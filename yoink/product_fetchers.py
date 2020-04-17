@@ -3,15 +3,21 @@
 # Implementations of assorted product fetchers
 
 import logging
+from threading import Thread
 
 from yoink.file_retrievers import NGASFileRetriever
 
 
 class BaseProductFetcher:
     """ This is a base class for fetchers, it doesn't really do a lot,
-    perhaps it was a mistake. """
+    perhaps it was a mistake.
+
+    TODO: think it over, and either make this more useful or refactor it out.
+    """
+
     def __init__(self, args, settings, servers_report):
         self.log = logging.getLogger(self.__class__.__name__)
+        self.args = args
         self.output_dir = args.output_dir
         self.dry_run = args.dry_run
         self.servers_report = servers_report
@@ -31,6 +37,7 @@ class BaseProductFetcher:
 class SerialProductFetcher(BaseProductFetcher):
     """ Pull the files out, one right after another, don't try to be
     clever about it. """
+
     def __init__(self, args, settings, servers_report):
         super().__init__(args, settings, servers_report)
 
@@ -43,9 +50,16 @@ class SerialProductFetcher(BaseProductFetcher):
                 self.ngas_retriever.retrieve(server, retrieve_method, f)
 
 
+def retrieve_files(args, server, retrieve_method, file_specs):
+    retriever = NGASFileRetriever(args)
+    for file_spec in file_specs:
+        retriever.retrieve(server, retrieve_method, file_spec)
+
+
 class ParallelProductFetcher(BaseProductFetcher):
     """ Pull the files out in parallel, try to be clever about it. Likely
     fail in the attempt, but do try to be clever. """
+
     def __init__(self, args, settings, servers_report):
         super().__init__(args, settings, servers_report)
         self.bucketized_files = self._bucketize_files()
@@ -83,6 +97,16 @@ class ParallelProductFetcher(BaseProductFetcher):
         return result
 
     def run(self):
-        self.log.debug('writing to {}'.format(self.output_dir))
-        self.log.debug('dry run: {}'.format(self.dry_run))
-        self.log.debug('+++ {}'.format(self.bucketized_files))
+        threads = list()
+        for server in self.bucketized_files:
+            retrieve_method = self.servers_report[server]['retrieve_method']
+            self.log.error(server)
+            for file_specs in self.bucketized_files[server]:
+                thread = Thread(target=retrieve_files,
+                                args=(self.args, server, retrieve_method,
+                                      file_specs,))
+                threads.append(thread)
+                thread.start()
+
+        for thread in threads:
+            thread.join()
