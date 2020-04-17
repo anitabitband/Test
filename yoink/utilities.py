@@ -204,7 +204,8 @@ class LocationsReport:
         except EnvironmentError:
             # This broadly catches any exception with opening and reading the
             # file, but it might not catch exceptions converting to JSON.
-            # ToDo: look into that and add other clauses.
+            #
+            # TODO: look into that and add other clauses.
             self.log.error('problem opening file {}'.format(self.location_file))
             terminal_error(Errors.FILE_ERROR)
 

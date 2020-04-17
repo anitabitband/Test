@@ -9,12 +9,11 @@ from yoink.file_retrievers import NGASFileRetriever
 
 
 class BaseProductFetcher:
-    """ This is a base class for fetchers, it doesn't really do a lot,
-    perhaps it was a mistake.
+    """ This is a base class for fetchers. """
 
-    TODO: think it over, and either make this more useful or refactor it out.
-    """
-
+    # TODO: think it over, and either make this more useful or nuke it,
+    #   because it doesn't seem to do enough to justify itself.
+    
     def __init__(self, args, settings, servers_report):
         self.log = logging.getLogger(self.__class__.__name__)
         self.args = args
@@ -58,11 +57,11 @@ def retrieve_files(args, server, retrieve_method, file_specs):
 
 class ParallelProductFetcher(BaseProductFetcher):
     """ Pull the files out in parallel, try to be clever about it. Likely
-    fail in the attempt, but do try to be clever.
+    fail in the attempt, but do try to be clever. """
 
-    TODO: IMO this poorly handles the case where a threaded request fails.
-
-    """
+    # TODO: IMO this poorly handles the case where a threaded request fails, what
+    #   should happen is the low level routine should throw an exception if there
+    #   is an error that this routine catches and handles.
 
     def __init__(self, args, settings, servers_report):
         super().__init__(args, settings, servers_report)
