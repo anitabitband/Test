@@ -13,7 +13,7 @@ class BaseProductFetcher:
 
     # TODO: think it over, and either make this more useful or nuke it,
     #   because it doesn't seem to do enough to justify itself.
-    
+
     def __init__(self, args, settings, servers_report):
         self.log = logging.getLogger(self.__class__.__name__)
         self.args = args
@@ -61,7 +61,7 @@ class ParallelProductFetcher(BaseProductFetcher):
 
     # TODO: IMO this poorly handles the case where a threaded request fails, what
     #   should happen is the low level routine should throw an exception if there
-    #   is an error that this routine catches and handles.
+    #   is an error that any product fetcher should handle.
 
     def __init__(self, args, settings, servers_report):
         super().__init__(args, settings, servers_report)

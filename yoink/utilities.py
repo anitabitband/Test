@@ -62,7 +62,7 @@ def get_arg_parser():
     optional_group.add_argument('--sdm-only', action='store_true', dest='sdm_only',
                                 help='only get the metadata, not the fringes')
     optional_group.add_argument('--verbose', action='store_true',
-                                required=False, dest='verbose',
+                                required=False, dest='verbose', default=False,
                                 help='make a lot of noise')
     if 'CAPO_PROFILE' in os.environ:
         optional_group.add_argument('--profile', action='store', dest='profile',
@@ -107,6 +107,10 @@ class LocationsReport:
     to retrieve the product's files from long term storage (NGAS): this
     class handles fetching the report from the service or reading it from
     a file, and has utilities to manipulate the report. """
+
+    # TODO: it would be wide to build some validation into the class
+    #   so if we get passed an improper file (either by service or by
+    #   path) we complain loudly and fall over.
 
     def __init__(self, args, settings):
         self.log = logging.getLogger(self.__class__.__name__)
