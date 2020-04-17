@@ -4,7 +4,7 @@
 
 import logging
 
-from yoink.product_fetchers import SerialProductFetcher
+from yoink.product_fetchers import SerialProductFetcher, ParallelProductFetcher
 from yoink.utilities import get_arg_parser, get_capo_settings, LocationsReport
 
 LOG = logging.getLogger(__name__)
@@ -19,8 +19,8 @@ class Yoink:
         self.servers_report = self.locations_report.servers_report
 
     def run(self):
-        fetcher = SerialProductFetcher(self.args, self.settings,
-                                       self.servers_report)
+        fetcher = ParallelProductFetcher(self.args, self.settings,
+                                         self.servers_report)
         fetcher.run()
 
 

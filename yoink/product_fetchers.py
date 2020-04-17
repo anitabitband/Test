@@ -8,11 +8,14 @@ from yoink.file_retrievers import NGASFileRetriever
 
 
 class BaseProductFetcher:
+    """ This is a base class for fetchers, it doesn't really do a lot,
+    perhaps it was a mistake. """
     def __init__(self, args, settings, servers_report):
         self.log = logging.getLogger(self.__class__.__name__)
         self.output_dir = args.output_dir
         self.dry_run = args.dry_run
         self.servers_report = servers_report
+        self.settings = settings
         self.ngas_retriever = NGASFileRetriever(args)
 
     def run(self):
@@ -45,7 +48,41 @@ class ParallelProductFetcher(BaseProductFetcher):
     fail in the attempt, but do try to be clever. """
     def __init__(self, args, settings, servers_report):
         super().__init__(args, settings, servers_report)
+        self.bucketized_files = self._bucketize_files()
+
+    def _bucketize_files(self):
+        """ bucketize files takes the list of files to be fetched and breaks
+        them up for each thread: the end result of this should be a dictionary
+        with one entry per server in the locations, and the value of that key
+        should be a list of lists: one list per 'threadsPerHost', and each of
+        those lists are files to be retrieved.
+
+        I don't think I explained that well. Lets say you have asked for a huge
+        product, a VLASS execution block with 27k files, spread across three
+        different NGAS servers.
+
+        The result of bucketization is a dictionary with three keys, one per
+        each NGAS host. The value of the key is list with one element per the
+        number of threads per host (currently configured at 4). That per-server
+        and per-thread value is a list of files that thread will fetch.
+        """
+        result = dict()
+        # One dict entry per server.
+        for server in self.servers_report:
+            # Each entry has a list of 'threads_per_host' elements
+            result[server] = list()
+            for i in range(int(self.settings['threads_per_host'])):
+                result[server].append(list())
+            # Assign files to threads, tried this with a comprehension but it
+            # was ... fairly incomprehensible.
+            i = 0
+            for f in self.servers_report[server]['files']:
+                list_number = i % int(self.settings['threads_per_host'])
+                result[server][list_number].append(f)
+                i += 1
+        return result
 
     def run(self):
         self.log.debug('writing to {}'.format(self.output_dir))
         self.log.debug('dry run: {}'.format(self.dry_run))
+        self.log.debug('+++ {}'.format(self.bucketized_files))
