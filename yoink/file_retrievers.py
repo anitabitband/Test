@@ -71,8 +71,6 @@ class NGASFileRetriever:
         """ Confirm that the file was retrieved and its size matches what
         we expect. If not, throw an error and die.
 
-        TODO: confirm whether dying is what we want for a threaded call.
-
         :param destination: the path to the file to check
         :param file_spec: the file specification of that file
         """

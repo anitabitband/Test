@@ -58,7 +58,11 @@ def retrieve_files(args, server, retrieve_method, file_specs):
 
 class ParallelProductFetcher(BaseProductFetcher):
     """ Pull the files out in parallel, try to be clever about it. Likely
-    fail in the attempt, but do try to be clever. """
+    fail in the attempt, but do try to be clever.
+
+    TODO: IMO this poorly handles the case where a threaded request fails.
+
+    """
 
     def __init__(self, args, settings, servers_report):
         super().__init__(args, settings, servers_report)
