@@ -3,10 +3,10 @@
 # Implementations of assorted file retrievers.
 
 import logging
-import requests
 import os
-import sys
 from pathlib import Path
+
+import requests
 
 from yoink.errors import Errors, terminal_error
 
@@ -80,6 +80,7 @@ class NGASFileRetriever:
                 terminal_error(Errors.NGAS_ERROR)
             if file_spec['size'] != os.path.getsize(destination):
                 terminal_error(Errors.SIZE_MISMATCH)
+            self.log.debug('looks good, sizes match')
 
     def _copying_fetch(self, download_url, destination, file_spec):
         """ Pull a file out of NGAS via the direct copy plugin.
@@ -101,7 +102,10 @@ class NGASFileRetriever:
 
                 if r.status_code != requests.codes.ok:
                     self.log.error('bad status code {}'.format(r.status_code))
+                    self.log.error('url: {}'.format(r.url))
                     terminal_error(Errors.NGAS_ERROR)
+                else:
+                    self.log.info('retrieved {} from {}'.format(destination, r.url))
 
     def _streaming_fetch(self, download_url, destination, file_spec):
         """ Pull a file out of NGAS via streaming.
@@ -127,3 +131,5 @@ class NGASFileRetriever:
                 if r.status_code != requests.codes.ok:
                     self.log.error('bad status code {}'.format(r.status_code))
                     terminal_error(Errors.NGAS_ERROR)
+                else:
+                    self.log.info('retrieved {} from {}'.format(destination, r.url))

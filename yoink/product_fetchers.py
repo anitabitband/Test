@@ -103,7 +103,8 @@ class ParallelProductFetcher(BaseProductFetcher):
         threads = list()
         for server in self.bucketized_files:
             retrieve_method = self.servers_report[server]['retrieve_method']
-            self.log.error(server)
+            self.log.debug('building thread, server: {}, method: {}'
+                           .format(server, retrieve_method))
             for file_specs in self.bucketized_files[server]:
                 thread = Thread(target=retrieve_files,
                                 args=(self.args, server, retrieve_method,

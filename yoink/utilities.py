@@ -97,7 +97,7 @@ def get_capo_settings(profile):
             terminal_error(Errors.MISSING_SETTING)
         result[REQUIRED_SETTINGS[setting]] = value
         LOG.debug('required setting {} is {}'.format(REQUIRED_SETTINGS[setting], value))
-    LOG.error(str(result))
+    LOG.debug('CAPO settings: {}'.format(str(result)))
     return result
 
 
