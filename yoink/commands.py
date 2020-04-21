@@ -4,9 +4,9 @@
 
 import logging
 
-from yoink.product_fetchers import SerialProductFetcher, ParallelProductFetcher
-from yoink.utilities import get_arg_parser, get_capo_settings, LocationsReport
 from yoink.errors import terminal_exception
+from yoink.product_fetchers import ParallelProductFetcher
+from yoink.utilities import get_arg_parser, get_capo_settings, LocationsReport
 
 LOG = logging.getLogger(__name__)
 

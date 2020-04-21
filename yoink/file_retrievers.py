@@ -8,8 +8,7 @@ from pathlib import Path
 
 import requests
 
-from yoink.errors import LocationServiceErrorException, \
-    SizeMismatchException, NGASServiceErrorException, FileErrorException
+from yoink.errors import SizeMismatchException, NGASServiceErrorException, FileErrorException
 
 _DIRECT_COPY_PLUGIN = 'ngamsDirectCopyDppi'
 
@@ -68,7 +67,7 @@ class NGASFileRetriever:
                 umask = os.umask(0o000)
                 Path(basedir).mkdir(parents=True, exist_ok=True)
                 os.umask(umask)
-            except Exception as ex:
+            except OSError:
                 raise FileErrorException('failure trying to create output directory {}'
                                          .format(basedir))
 
@@ -130,11 +129,11 @@ class NGASFileRetriever:
             with requests.Session() as s:
                 try:
                     r = s.get(download_url, params=params, stream=True)
-                    chunk_size = 8192;
+                    chunk_size = 8192
                     with open(destination, 'wb') as f:
                         for chunk in r.iter_content(chunk_size=chunk_size):
                             f.write(chunk)
-                except requests.exceptions.ConnectionError as ex:
+                except requests.exceptions.ConnectionError:
                     raise NGASServiceErrorException('problem connecting with {}'
                                                     .format(download_url))
 

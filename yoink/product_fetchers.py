@@ -92,4 +92,7 @@ class ParallelProductFetcher(BaseProductFetcher):
         with ThreadPoolExecutor() as executor:
             results = executor.map(self.fetch_bucket, self.bucketized_files)
             for future in as_completed(results):
+                # Doesn't actually return anything, but gooses any exceptions.
+                # This could be made cooled somehow, like, have it return the
+                # number of files fetched.
                 result = future.result()
