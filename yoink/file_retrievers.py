@@ -8,7 +8,8 @@ from pathlib import Path
 
 import requests
 
-from yoink.errors import Errors, terminal_error
+from yoink.errors import LocationServiceErrorException, \
+    SizeMismatchException, NGASServiceErrorException, FileErrorException
 
 _DIRECT_COPY_PLUGIN = 'ngamsDirectCopyDppi'
 
@@ -62,10 +63,14 @@ class NGASFileRetriever:
         :return:
         """
         if not self.dry_run:
-            umask = os.umask(0o000)
             basedir = os.path.dirname(destination)
-            Path(basedir).mkdir(parents=True, exist_ok=True)
-            os.umask(umask)
+            try:
+                umask = os.umask(0o000)
+                Path(basedir).mkdir(parents=True, exist_ok=True)
+                os.umask(umask)
+            except Exception as ex:
+                raise FileErrorException('failure trying to create output directory {}'
+                                         .format(basedir))
 
     def _check_result(self, destination, file_spec):
         """ Confirm that the file was retrieved and its size matches what
@@ -77,9 +82,11 @@ class NGASFileRetriever:
         self.log.debug('verifying fetch of {}'.format(destination))
         if not self.dry_run:
             if not os.path.exists(destination):
-                terminal_error(Errors.NGAS_ERROR)
+                raise NGASServiceErrorException('file not delivered to {}'.format(destination))
             if file_spec['size'] != os.path.getsize(destination):
-                terminal_error(Errors.SIZE_MISMATCH)
+                raise SizeMismatchException('file retrieval size mismatch on {}: expected {} got {}'
+                                            .format(destination, file_spec['size'],
+                                                    os.path.getsize(destination)))
             self.log.debug('looks good, sizes match')
 
     def _copying_fetch(self, download_url, destination, file_spec):
@@ -101,9 +108,8 @@ class NGASFileRetriever:
                 r = s.get(download_url, params=params)
 
                 if r.status_code != requests.codes.ok:
-                    self.log.error('bad status code {}'.format(r.status_code))
-                    self.log.error('url: {}'.format(r.url))
-                    terminal_error(Errors.NGAS_ERROR)
+                    raise NGASServiceErrorException('bad status code {}'.
+                                                    format(r.status_code))
                 else:
                     self.log.info('retrieved {} from {}'.format(destination, r.url))
 
@@ -122,14 +128,17 @@ class NGASFileRetriever:
                        .format(download_url, destination))
         if not self.dry_run:
             with requests.Session() as s:
-                r = s.get(download_url, params=params, stream=True)
-                chunk_size = 8192;
-                with open(destination, 'wb') as f:
-                    for chunk in r.iter_content(chunk_size=chunk_size):
-                        f.write(chunk)
+                try:
+                    r = s.get(download_url, params=params, stream=True)
+                    chunk_size = 8192;
+                    with open(destination, 'wb') as f:
+                        for chunk in r.iter_content(chunk_size=chunk_size):
+                            f.write(chunk)
+                except requests.exceptions.ConnectionError as ex:
+                    raise NGASServiceErrorException('problem connecting with {}'
+                                                    .format(download_url))
 
                 if r.status_code != requests.codes.ok:
-                    self.log.error('bad status code {}'.format(r.status_code))
-                    terminal_error(Errors.NGAS_ERROR)
+                    raise NGASServiceErrorException('bad status code {}'.format(r.status_code))
                 else:
                     self.log.info('retrieved {} from {}'.format(destination, r.url))

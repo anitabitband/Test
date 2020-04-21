@@ -15,7 +15,9 @@ import pathlib
 import requests
 from pycapo import *
 
-from yoink.errors import terminal_error, Errors, get_error_descriptions
+from yoink.errors import get_error_descriptions, NoProfileException, MissingSettingsException, \
+    FileErrorException, LocationServiceErrorException, LocationServiceRedirectsException, \
+    LocationServiceTimeoutException, NoLocatorException
 
 LOG = logging.getLogger(__name__)
 
@@ -84,7 +86,7 @@ def get_capo_settings(profile):
     """
     result = dict()
     if profile is None:
-        terminal_error(Errors.NO_PROFILE)
+        raise NoProfileException('CAPO_PROFILE required, none provided')
     c = CapoConfig(profile=profile)
     for setting in REQUIRED_SETTINGS:
         value = None
@@ -93,8 +95,8 @@ def get_capo_settings(profile):
         try:
             value = c[setting]
         except KeyError:
-            LOG.error('missing required setting {}'.format(setting))
-            terminal_error(Errors.MISSING_SETTING)
+            raise MissingSettingsException('missing required setting "{}"'
+                                           .format(setting))
         result[REQUIRED_SETTINGS[setting]] = value
         LOG.debug('required setting {} is {}'.format(REQUIRED_SETTINGS[setting], value))
     LOG.debug('CAPO settings: {}'.format(str(result)))
@@ -205,13 +207,13 @@ class LocationsReport:
             with open(self.location_file) as f:
                 result = json.load(f)
                 return result
-        except EnvironmentError:
+        except EnvironmentError as ex:
             # This broadly catches any exception with opening and reading the
             # file, but it might not catch exceptions converting to JSON.
             #
             # TODO: look into that and add other clauses.
-            self.log.error('problem opening file {}'.format(self.location_file))
-            terminal_error(Errors.FILE_ERROR)
+            raise FileErrorException('can not read provided file {}'
+                                     .format(self.location_file))
 
     def _get_location_report_from_service(self):
         """ Use 'requests' to fetch the location report from the locator service.
@@ -226,17 +228,17 @@ class LocationsReport:
             response = requests.get(self.settings['locator_service_url'],
                                     params={'locator': self.product_locator})
         except requests.exceptions.Timeout:
-            terminal_error(Errors.SERVICE_TIMEOUT)
+            raise LocationServiceTimeoutException()
         except requests.exceptions.TooManyRedirects:
-            terminal_error(Errors.SERVICE_REDIRECTS)
-        except requests.exceptions.RequestException:
-            terminal_error(Errors.SERVICE_ERROR)
+            raise LocationServiceRedirectsException()
+        except requests.exceptions.RequestException as ex:
+            raise LocationServiceErrorException(ex)
 
         if response.status_code == 200:
             return response.json()
         elif response.status_code == 404:
-            self.log.error('can not find locator {}'.format(self.product_locator))
-            terminal_error(Errors.NO_LOCATOR)
+            raise NoLocatorException('can not find locator {}'.
+                                     format(self.product_locator))
         else:
-            self.log.error('locator service returned {}'.format(response.status_code))
-            terminal_error(Errors.SERVICE_ERROR)
+            raise LocationServiceErrorException('locator service returned {}'
+                                                .format(response.status_code))

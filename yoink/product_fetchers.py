@@ -2,8 +2,9 @@
 
 # Implementations of assorted product fetchers
 
+import copy
 import logging
-from threading import Thread
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from yoink.file_retrievers import NGASFileRetriever
 
@@ -23,14 +24,10 @@ class BaseProductFetcher:
         self.settings = settings
         self.ngas_retriever = NGASFileRetriever(args)
 
-    def run(self):
-        pass
-
-    def verify_files(self):
-        pass
-
-    def verify_file(self):
-        pass
+    def retrieve_files(self, server, retrieve_method, file_specs):
+        retriever = NGASFileRetriever(self.args)
+        for file_spec in file_specs:
+            retriever.retrieve(server, retrieve_method, file_spec)
 
 
 class SerialProductFetcher(BaseProductFetcher):
@@ -44,73 +41,55 @@ class SerialProductFetcher(BaseProductFetcher):
         self.log.debug('writing to {}'.format(self.output_dir))
         self.log.debug('dry run: {}'.format(self.dry_run))
         for server in self.servers_report:
-            retrieve_method = self.servers_report[server]['retrieve_method']
-            for f in self.servers_report[server]['files']:
-                self.ngas_retriever.retrieve(server, retrieve_method, f)
-
-
-def retrieve_files(args, server, retrieve_method, file_specs):
-    retriever = NGASFileRetriever(args)
-    for file_spec in file_specs:
-        retriever.retrieve(server, retrieve_method, file_spec)
+            self.retrieve_files(server,
+                                self.servers_report[server]['retrieve_method'],
+                                self.servers_report[server]['files'])
 
 
 class ParallelProductFetcher(BaseProductFetcher):
     """ Pull the files out in parallel, try to be clever about it. Likely
     fail in the attempt, but do try to be clever. """
 
-    # TODO: IMO this poorly handles the case where a threaded request fails, what
-    #   should happen is the low level routine should throw an exception if there
-    #   is an error that any product fetcher should handle.
-
     def __init__(self, args, settings, servers_report):
         super().__init__(args, settings, servers_report)
         self.bucketized_files = self._bucketize_files()
 
     def _bucketize_files(self):
-        """ bucketize files takes the list of files to be fetched and breaks
-        them up for each thread: the end result of this should be a dictionary
-        with one entry per server in the locations, and the value of that key
-        should be a list of lists: one list per 'threadsPerHost', and each of
-        those lists are files to be retrieved.
+        """ Takes the servers report and splits it up into a list of buckets, each
+        of which a single thread will handle. There will be X * Y buckets, where X
+        is the number of servers and Y is the 'threads per host', and the files for
+        a given server will be distributed among the buckets for that server.
 
-        I don't think I explained that well. Lets say you have asked for a huge
-        product, a VLASS execution block with 27k files, spread across three
-        different NGAS servers.
-
-        The result of bucketization is a dictionary with three keys, one per
-        each NGAS host. The value of the key is list with one element per the
-        number of threads per host (currently configured at 4). That per-server
-        and per-thread value is a list of files that thread will fetch.
+        Basically what we are doing here is splitting up the work among the threads
+        we'll be creating and creating a list of work for each thread to do.
         """
-        result = dict()
-        # One dict entry per server.
+
+        result = list()
         for server in self.servers_report:
-            # Each entry has a list of 'threads_per_host' elements
-            result[server] = list()
-            for i in range(int(self.settings['threads_per_host'])):
-                result[server].append(list())
-            # Assign files to threads, tried this with a comprehension but it
-            # was ... fairly incomprehensible.
+            # Setup the 'buckets', one per server.
+            bucket = {'server': server,
+                      'retrieve_method': self.servers_report[server]['retrieve_method'],
+                      'files': list()}
+            buckets = [copy.deepcopy(bucket) for x in
+                       range(int(self.settings['threads_per_host']))]
+            # Spread the files for a given server around its buckets.
             i = 0
             for f in self.servers_report[server]['files']:
                 list_number = i % int(self.settings['threads_per_host'])
-                result[server][list_number].append(f)
+                buckets[list_number]['files'].append(f)
                 i += 1
+            # Trim out every bucket with no files, add the rest to the result.
+            result.extend([bucket for bucket in
+                           buckets if len(bucket['files']) > 0])
         return result
 
-    def run(self):
-        threads = list()
-        for server in self.bucketized_files:
-            retrieve_method = self.servers_report[server]['retrieve_method']
-            self.log.debug('building thread, server: {}, method: {}'
-                           .format(server, retrieve_method))
-            for file_specs in self.bucketized_files[server]:
-                thread = Thread(target=retrieve_files,
-                                args=(self.args, server, retrieve_method,
-                                      file_specs,))
-                threads.append(thread)
-                thread.start()
+    def fetch_bucket(self, bucket):
+        self.retrieve_files(bucket['server'],
+                            bucket['retrieve_method'],
+                            bucket['files'])
 
-        for thread in threads:
-            thread.join()
+    def run(self):
+        with ThreadPoolExecutor() as executor:
+            results = executor.map(self.fetch_bucket, self.bucketized_files)
+            for future in as_completed(results):
+                result = future.result()
