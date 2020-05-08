@@ -9,7 +9,7 @@ from enum import Enum
 
 LOG = logging.getLogger(__name__)
 
-
+# TODO: every one of these must be tested
 class Errors(Enum):
     NO_PROFILE = 1
     MISSING_SETTING = 2
@@ -22,6 +22,7 @@ class Errors(Enum):
     NGAS_SERVICE_REDIRECTS = 9
     NGAS_SERVICE_ERROR = 10
     SIZE_MISMATCH = 11
+    FILE_EXISTS_ERROR = 12
 
 
 class NoProfileException(Exception):
@@ -64,6 +65,10 @@ class FileErrorException(Exception):
     pass
 
 
+class FileExistsException(Exception):
+    pass
+
+
 class SizeMismatchException(Exception):
     pass
 
@@ -76,6 +81,7 @@ TERMINAL_ERRORS = {
     Errors.LOCATION_SERVICE_ERROR: 'catastrophic error on locator service',
     Errors.NO_LOCATOR: 'product locator not found',
     Errors.FILE_ERROR: 'not able to open specified location file',
+    Errors.FILE_EXISTS_ERROR: 'specified location file exists',
     Errors.NGAS_SERVICE_TIMEOUT: 'request to NGAS timed out',
     Errors.NGAS_SERVICE_REDIRECTS: 'too many redirects on NGAS service',
     Errors.NGAS_SERVICE_ERROR: 'catastrophic error on NGAS service',
@@ -108,6 +114,7 @@ def exception_to_error(exception):
         'LocationServiceErrorException': Errors.LOCATION_SERVICE_ERROR,
         'NoLocatorException': Errors.NO_LOCATOR,
         'FileErrorException': Errors.FILE_ERROR,
+        'FileExistsError': Errors.FILE_EXISTS_ERROR,
         'NGASServiceTimeoutException': Errors.NGAS_SERVICE_TIMEOUT,
         'NGASServiceRedirectsException': Errors.NGAS_SERVICE_REDIRECTS,
         'NGASServiceErrorException': Errors.NGAS_SERVICE_ERROR,

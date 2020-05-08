@@ -19,16 +19,25 @@ class BaseProductFetcher:
         self.log = logging.getLogger(self.__class__.__name__)
         self.args = args
         self.output_dir = args.output_dir
+        self.force_overwrite = args.force
         self.dry_run = args.dry_run
         self.servers_report = servers_report
         self.settings = settings
         self.ngas_retriever = NGASFileRetriever(args)
+        self.log.info('>>> HERE')
 
     def retrieve_files(self, server, retrieve_method, file_specs):
         retriever = NGASFileRetriever(self.args)
-        for file_spec in file_specs:
-            retriever.retrieve(server, retrieve_method, file_spec)
+        num_files = len(file_specs)
+        count = 0
 
+        self.log.info(f'>>> Got {num_files} files to retrieve from {server} by {retrieve_method}')
+        for file_spec in file_specs:
+            count += 1
+            self.log.info(f">>> retrieving {file_spec['relative_path']} ({file_spec['size']} bytes, no. {count} of {num_files})....")
+            retriever.retrieve(server, retrieve_method, file_spec)
+        self.log.info(f'>>> {num_files} files retrieved from {server}.')
+        return num_files
 
 class SerialProductFetcher(BaseProductFetcher):
     """ Pull the files out, one right after another, don't try to be
@@ -40,6 +49,7 @@ class SerialProductFetcher(BaseProductFetcher):
     def run(self):
         self.log.debug('writing to {}'.format(self.output_dir))
         self.log.debug('dry run: {}'.format(self.dry_run))
+        self.log.debug(f'force overwrite: {self.force_overwrite}')
         for server in self.servers_report:
             self.retrieve_files(server,
                                 self.servers_report[server]['retrieve_method'],
@@ -52,7 +62,14 @@ class ParallelProductFetcher(BaseProductFetcher):
 
     def __init__(self, args, settings, servers_report):
         super().__init__(args, settings, servers_report)
+        self.num_files_expected = self._count_files_expected()
         self.bucketized_files = self._bucketize_files()
+
+    def _count_files_expected(self):
+        count = 0;
+        for server in self.servers_report:
+            count += len(self.servers_report[server]['files'])
+        return count
 
     def _bucketize_files(self):
         """ Takes the servers report and splits it up into a list of buckets, each
@@ -84,15 +101,19 @@ class ParallelProductFetcher(BaseProductFetcher):
         return result
 
     def fetch_bucket(self, bucket):
-        self.retrieve_files(bucket['server'],
+        return self.retrieve_files(bucket['server'],
                             bucket['retrieve_method'],
                             bucket['files'])
 
     def run(self):
         with ThreadPoolExecutor() as executor:
             results = executor.map(self.fetch_bucket, self.bucketized_files)
+            num_files_retrieved = 0
             for future in as_completed(results):
                 # Doesn't actually return anything, but gooses any exceptions.
                 # This could be made cooled somehow, like, have it return the
                 # number of files fetched.
-                result = future.result()
+                num_files_retrieved += future.result()
+        if (num_files_retrieved != self.num_files_expected):
+            self.log.error(f'{self.num_files_expected} files expected, but only {num_files_retrieved} retrieved')
+        return num_files_retrieved

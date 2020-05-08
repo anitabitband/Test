@@ -11,7 +11,10 @@ import json
 import logging
 import os
 import pathlib
+import time
+from typing import List
 
+import psycopg2 as pg
 import requests
 from pycapo import *
 
@@ -19,7 +22,9 @@ from yoink.errors import get_error_descriptions, NoProfileException, MissingSett
     FileErrorException, LocationServiceErrorException, LocationServiceRedirectsException, \
     LocationServiceTimeoutException, NoLocatorException
 
-LOG = logging.getLogger(__name__)
+LOG_FORMAT = "%(name)s.%(module)s.%(funcName)s, %(lineno)d: %(message)s"
+logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
+_LOG = logging.getLogger(__name__)
 
 # Prologue and epilogue for the command line parser.
 _PROLOGUE = \
@@ -34,6 +39,17 @@ REQUIRED_SETTINGS = {
     'EDU.NRAO.ARCHIVE.DATAFETCHER.DATAFETCHERSETTINGS.EXECUTIONSITE': 'execution_site',
     'EDU.NRAO.ARCHIVE.DATAFETCHER.DATAFETCHERSETTINGS.DEFAULTTHREADSPERHOST': 'threads_per_host'
 }
+
+def configure_logging():
+    logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
+
+def path_is_accessible(path):
+    can_access = os.access(path, os.F_OK)
+    can_access = can_access and os.path.isdir(path)
+    can_access = can_access and os.access(path, os.R_OK)
+    can_access = can_access and os.access(path, os.W_OK)
+    can_access = can_access and os.access(path, os.X_OK)
+    return can_access
 
 
 def get_arg_parser():
@@ -66,6 +82,9 @@ def get_arg_parser():
     optional_group.add_argument('--verbose', action='store_true',
                                 required=False, dest='verbose', default=False,
                                 help='make a lot of noise')
+    optional_group.add_argument('--force', action='store_true',
+                                required=False, dest='force', default=False,
+                                help='overwrite existing file(s) at destination')
     if 'CAPO_PROFILE' in os.environ:
         optional_group.add_argument('--profile', action='store', dest='profile',
                                     help='CAPO profile to use, default \''
@@ -91,15 +110,36 @@ def get_capo_settings(profile):
     for setting in REQUIRED_SETTINGS:
         value = None
         setting = setting.upper()
-        LOG.debug('looking for setting {}'.format(setting))
+        _LOG.debug('looking for setting {}'.format(setting))
         try:
             value = c[setting]
         except KeyError:
             raise MissingSettingsException('missing required setting "{}"'
                                            .format(setting))
         result[REQUIRED_SETTINGS[setting]] = value
-        LOG.debug('required setting {} is {}'.format(REQUIRED_SETTINGS[setting], value))
-    LOG.debug('CAPO settings: {}'.format(str(result)))
+        _LOG.debug('required setting {} is {}'.format(REQUIRED_SETTINGS[setting], value))
+    _LOG.debug('CAPO settings: {}'.format(str(result)))
+    return result
+
+def get_metadata_db_settings(profile):
+    """ Get Capo settings needed to connect to archive DB
+    :param profile:
+    :return:
+    """
+    result = dict()
+    if profile is None:
+        raise NoProfileException('CAPO_PROFILE required, none provided')
+    c = CapoConfig(profile=profile)
+    fields = ['jdbcDriver', 'jdbcUrl', 'jdbcUsername', 'jdbcPassword']
+    qualified_fields = ['metadataDatabase.' + field for field in fields]
+    for field in qualified_fields:
+        _LOG.debug(f'looking for {field}....')
+        # field = 'metadataDatabase.' + field
+        try:
+            value = c[field]
+            result[field] = value
+        except KeyError:
+            raise MissingSettingsException(f'missing required setting "{field}"')
     return result
 
 
@@ -242,3 +282,58 @@ class LocationsReport:
         else:
             raise LocationServiceErrorException('locator service returned {}'
                                                 .format(response.status_code))
+
+class ProductLocatorLookup:
+    """ Look up the product locator for an external name (fileset ID)
+
+    """
+
+    def __init__(self, capo_db_settings):
+        self.capo_db_settings = capo_db_settings
+        self.credentials = {}
+        for key, value in self.capo_db_settings.items():
+            self.credentials[key.replace('metadataDatabase.', '')] = value
+
+    def look_up_locator_for_ext_name(self, external_name):
+        self.host, self.dbname = self.credentials['jdbcUrl'].split(':')[2][2:].split('/')
+
+        with pg.connect(dbname=self.dbname,
+                        host=self.host,
+                        user=self.credentials['jdbcUsername'],
+                        password=self.credentials['jdbcPassword']) as conn:
+            cursor = conn.cursor()
+            sql = 'SELECT science_product_locator FROM science_products WHERE external_name=%s'
+            cursor.execute(sql, (external_name,), )
+            product_locator = cursor.fetchone()
+        return product_locator[0]
+
+
+class Retryer:
+
+    def __init__(self, func, max_tries, sleep_interval):
+        self.func = func
+        self.max_tries = max_tries
+        self.complete = False
+        self.sleep_interval = sleep_interval
+
+    def retry(self, args: List):
+        num_tries = 0
+        while num_tries < self.max_tries and not self.complete:
+
+            num_tries += 1
+            _LOG.info(f'trying {self.func.__name__} with argument(s) "{args}"....')
+
+            try:
+                success = self.func(args)
+                if success:
+                    self.complete = True
+            except SystemExit as exc:
+                if num_tries < self.max_tries:
+                    _LOG.info(f'{exc}; trying again after {self.sleep_interval} seconds....')
+                    time.sleep(self.sleep_interval)
+                    return num_tries
+                else:
+                    _LOG.error(f'FAILURE after {num_tries} attempts')
+                    raise exc
+
+        return num_tries
