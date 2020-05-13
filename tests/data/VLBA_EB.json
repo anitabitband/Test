@@ -1,0 +1,229 @@
+{
+  "files": [
+    {
+      "ngas_file_id": "VLBA_VSN001157_file11.uvfits",
+      "subdirectory": null,
+      "relative_path": "VLBA_VSN001157_file11.uvfits",
+      "checksum": "567626972",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 17222400,
+      "server": {
+        "server": "nmngas03.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "VLBA_VSN001158_file25.uvfits",
+      "subdirectory": null,
+      "relative_path": "VLBA_VSN001158_file25.uvfits",
+      "checksum": "1690989225",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 201456000,
+      "server": {
+        "server": "nmngas03.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "VLBA_VSN001158_file2.uvfits",
+      "subdirectory": null,
+      "relative_path": "VLBA_VSN001158_file2.uvfits",
+      "checksum": "-2095403451",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 17251200,
+      "server": {
+        "server": "nmngas03.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "VLBA_VSN001158_file5.uvfits",
+      "subdirectory": null,
+      "relative_path": "VLBA_VSN001158_file5.uvfits",
+      "checksum": "-61921510",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 129427200,
+      "server": {
+        "server": "nmngas03.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "VLBA_VSN001159_file10.uvfits",
+      "subdirectory": null,
+      "relative_path": "VLBA_VSN001159_file10.uvfits",
+      "checksum": "1018054098",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 214588800,
+      "server": {
+        "server": "nmngas03.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "VLBA_VSN001159_file11.uvfits",
+      "subdirectory": null,
+      "relative_path": "VLBA_VSN001159_file11.uvfits",
+      "checksum": "647053836",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 147052800,
+      "server": {
+        "server": "nmngas03.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "VLBA_VSN001159_file12.uvfits",
+      "subdirectory": null,
+      "relative_path": "VLBA_VSN001159_file12.uvfits",
+      "checksum": "-1706351301",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 77270400,
+      "server": {
+        "server": "nmngas03.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "VLBA_VSN001160_file12.uvfits",
+      "subdirectory": null,
+      "relative_path": "VLBA_VSN001160_file12.uvfits",
+      "checksum": "-96770138",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 55785600,
+      "server": {
+        "server": "nmngas03.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "VLBA_VSN001160_file9.uvfits",
+      "subdirectory": null,
+      "relative_path": "VLBA_VSN001160_file9.uvfits",
+      "checksum": "1625286639",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 130233600,
+      "server": {
+        "server": "nmngas03.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "VLBA_VSN001161_file5.uvfits",
+      "subdirectory": null,
+      "relative_path": "VLBA_VSN001161_file5.uvfits",
+      "checksum": "-72933226",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 257414400,
+      "server": {
+        "server": "nmngas03.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "VLBA_VSN001161_file6.uvfits",
+      "subdirectory": null,
+      "relative_path": "VLBA_VSN001161_file6.uvfits",
+      "checksum": "-936981471",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 282988800,
+      "server": {
+        "server": "nmngas03.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "VLBA_VSN001161_file7.uvfits",
+      "subdirectory": null,
+      "relative_path": "VLBA_VSN001161_file7.uvfits",
+      "checksum": "1564248324",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 163584000,
+      "server": {
+        "server": "nmngas03.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "VLBA_VSN001161_file8.uvfits",
+      "subdirectory": null,
+      "relative_path": "VLBA_VSN001161_file8.uvfits",
+      "checksum": "-604752879",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 87292800,
+      "server": {
+        "server": "nmngas03.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "VLBA_VSN001161_file9.uvfits",
+      "subdirectory": null,
+      "relative_path": "VLBA_VSN001161_file9.uvfits",
+      "checksum": "1029294087",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 68889600,
+      "server": {
+        "server": "nmngas03.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "VLBA_VSN001162_file1.uvfits",
+      "subdirectory": null,
+      "relative_path": "VLBA_VSN001162_file1.uvfits",
+      "checksum": "-1078029753",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 274867200,
+      "server": {
+        "server": "nmngas03.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "VLBA_VSN001162_file44.uvfits",
+      "subdirectory": null,
+      "relative_path": "VLBA_VSN001162_file44.uvfits",
+      "checksum": "1607110096",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 15235200,
+      "server": {
+        "server": "nmngas03.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    }
+  ],
+  "aggregate_size": 2140560000
+}

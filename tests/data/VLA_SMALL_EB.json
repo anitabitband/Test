@@ -1,0 +1,621 @@
+{
+  "files": [
+    {
+      "ngas_file_id": "uid____evla_bdf_1587067245117.bdf",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "ASDMBinary/uid____evla_bdf_1587067245117",
+      "checksum": "-582543640",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 64269088,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid____evla_bdf_1587067253010.bdf",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "ASDMBinary/uid____evla_bdf_1587067253010",
+      "checksum": "-1289220584",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 48202328,
+      "server": {
+        "server": "nmngas03.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid____evla_bdf_1587067293008.bdf",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "ASDMBinary/uid____evla_bdf_1587067293008",
+      "checksum": "-466220771",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 48202328,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid____evla_bdf_1587067323008.bdf",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "ASDMBinary/uid____evla_bdf_1587067323008",
+      "checksum": "-135545102",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 48202328,
+      "server": {
+        "server": "nmngas03.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid____evla_bdf_1587067353007.bdf",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "ASDMBinary/uid____evla_bdf_1587067353007",
+      "checksum": "1434732210",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 48202328,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid____evla_bdf_1587067383008.bdf",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "ASDMBinary/uid____evla_bdf_1587067383008",
+      "checksum": "1068133024",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 14462132,
+      "server": {
+        "server": "nmngas03.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244583.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "ASDM.xml",
+      "checksum": "-914094758",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 9339,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244584.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "Annotation.xml",
+      "checksum": "948050774",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 389,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244585.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "Antenna.xml",
+      "checksum": "-969021375",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 11301,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244586.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "CalAntennaSolutions.xml",
+      "checksum": "-1013583173",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 416,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244587.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "CalData.xml",
+      "checksum": "756463717",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 3470,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244588.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "CalDevice.xml",
+      "checksum": "-1601788711",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 28196,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244589.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "CalPointing.xml",
+      "checksum": "1685625223",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 392,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244590.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "CalReduction.xml",
+      "checksum": "1604385900",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 3965,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244591.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "ConfigDescription.xml",
+      "checksum": "149033821",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 1529,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244592.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "CorrelatorMode.xml",
+      "checksum": "2089954768",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 897,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244593.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "DataDescription.xml",
+      "checksum": "495107328",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 1196,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244594.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "DelayModel.xml",
+      "checksum": "-76828257",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 389,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244595.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "DelayModelFixedParameters.xml",
+      "checksum": "176021642",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 1453,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244596.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "DelayModelVariableParameters.xml",
+      "checksum": "1435021925",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 3266,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244597.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "Doppler.xml",
+      "checksum": "-802771653",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 380,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244598.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "Ephemeris.xml",
+      "checksum": "9466567",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 386,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244599.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "ExecBlock.xml",
+      "checksum": "1200489340",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 2182,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244600.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "Feed.xml",
+      "checksum": "-140607651",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 34231,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244601.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "Field.xml",
+      "checksum": "-2107806642",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 802,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244602.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "Flag.xml",
+      "checksum": "1601291128",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 19613,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244603.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "Main.xml",
+      "checksum": "-233756297",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 5883,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244604.bin",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "Pointing.bin",
+      "checksum": "-2050985503",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 1305,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244605.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "PointingModel.xml",
+      "checksum": "-1271702380",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 11504,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244606.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "Polarization.xml",
+      "checksum": "665895897",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 804,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244607.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "Processor.xml",
+      "checksum": "-1435004927",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 612,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244608.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "Pulsar.xml",
+      "checksum": "-1260389839",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 377,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244609.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "Receiver.xml",
+      "checksum": "1571028130",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 1213,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244610.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "SBSummary.xml",
+      "checksum": "2079003550",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 1489,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244611.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "Scan.xml",
+      "checksum": "-157934591",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 3137,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244612.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "Source.xml",
+      "checksum": "501014918",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 1323,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244613.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "SpectralWindow.xml",
+      "checksum": "763862358",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 2005,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244614.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "State.xml",
+      "checksum": "748185968",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 747,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244615.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "Station.xml",
+      "checksum": "-1770346651",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 6123,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244616.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "Subscan.xml",
+      "checksum": "730904569",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 3266,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244617.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "SwitchCycle.xml",
+      "checksum": "-1173704056",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 697,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244618.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "SysCal.xml",
+      "checksum": "-39941162",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 377,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244619.bin",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "SysPower.bin",
+      "checksum": "-1679911076",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 914509,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid___evla_sdm_X1587067244620.sdm",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "Weather.xml",
+      "checksum": "-2073213468",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 1651,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    }
+  ],
+  "aggregate_size": 272621346
+}

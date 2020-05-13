@@ -1,13 +1,20 @@
+import http
 import logging
 import os
+import re
 import tempfile
 import unittest
 from pathlib import Path
+from typing import List
 
 import pytest
+
+from tests.testing_utils import get_locations_report, LOCATION_REPORTS, get_mini_locations_file, get_locations_file, \
+    write_locations_file
 from yoink.commands import Yoink
-from yoink.errors import FileErrorException, Errors
-from yoink.utilities import get_capo_settings, get_arg_parser, ProductLocatorLookup, get_metadata_db_settings
+from yoink.errors import Errors, NGASServiceErrorException
+from yoink.utilities import get_capo_settings, get_arg_parser, ProductLocatorLookup, get_metadata_db_settings, \
+    LocationsReport
 
 LOG_FORMAT = "%(name)s.%(module)s.%(funcName)s, %(lineno)d: %(message)s"
 logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
@@ -44,32 +51,39 @@ class YoinkTestCase(unittest.TestCase):
         cls.db_settings = get_metadata_db_settings(cls.profile)
         cls.test_data = cls._initialize_test_data(cls)
 
-    @unittest.skip('test_can_stream_exec_block')
-    def test_can_stream_exec_block(self):
-        parser = get_arg_parser()
-
-        product_locator = self.test_data['13B-014']['product_locator']
-        args = ['--product-locator', product_locator, '--output-dir','~/Downloads/', '--sdm-only', '--profile', self.profile]
-        namespace = parser.parse_args(args)
+    def test_can_stream_from_mini_locations_file(self):
+        ''' gin up a location report with just a few small files in it
+            and confirm that we can actually stream them
+        '''
+        umask = os.umask(0o000)
+        top_level = tempfile.mkdtemp()
+        os.umask(umask)
+        path = os.path.join(top_level, 'locations.json')
+        report_file = get_mini_locations_file(path)
+        args = ['--location-file', report_file, '--output-dir', top_level, '--sdm-only', '--profile', self.profile]
+        namespace = get_arg_parser().parse_args(args)
         yoink = Yoink(namespace, self.settings)
-        # TODO: too slow b/c of honkin' big SysPower.bin; mock or sth
-        yoink.run()
-        # TODO: does location exist and have 31 files?
-
+        retrieved = yoink.run()
+        file_count = len(retrieved)
+        print(f'{file_count} files should have been delivered to {top_level}')
+        self.assertEqual(37, file_count)
 
     def test_expected_copy_failure(self):
         test_data_13B_014 = self.test_data['13B-014']
 
-        top_level = tempfile.mkdtemp()
-        destination = os.path.join(top_level, test_data_13B_014['external_name'])
-
         umask = os.umask(0o000)
-        Path(destination).mkdir(parents=True, exist_ok=True)
+        top_level = tempfile.mkdtemp()
         os.umask(umask)
+        # destination = os.path.join(top_level, test_data_13B_014['external_name'])
+        #
+        # umask = os.umask(0o000)
+        # Path(destination).mkdir(parents=True, exist_ok=True)
+        # os.umask(umask)
 
         product_locator = test_data_13B_014['product_locator']
 
         # use site from non-local profile to guarantee copy attempt
+        local_exec_site = self.settings['execution_site']
         self.settings['execution_site'] = 'DSOC'
         args = ['--product-locator', product_locator,
                 '--output-dir', top_level, '--sdm-only', '--profile', self.profile, '--verbose']
@@ -80,15 +94,19 @@ class YoinkTestCase(unittest.TestCase):
         for server in servers_report:
             entry = servers_report[server]
             self.assertTrue(entry['retrieve_method'] == 'copy')
-        with pytest.raises(SystemExit) as s_ex:
-            yoink.run()
-        exc_code = s_ex.value.code
-        expected = Errors.NGAS_SERVICE_ERROR.value
-        self.assertEqual(expected, exc_code)
+
+        try:
+            with pytest.raises(NGASServiceErrorException) as s_ex:
+                yoink.run()
+            details = s_ex.value.args[0]
+            self.assertEqual(http.HTTPStatus.BAD_REQUEST, details['status_code'])
+        except Exception as exc:
+            raise exc
+        finally:
+            self.settings['execution_site'] = local_exec_site
 
     def test_no_overwrite_unless_forced(self):
         top_level = tempfile.mkdtemp()
-        # external_name = self.test_data['13B-014'].
         test_data_13B_014 = self.test_data['13B-014']
         destination = os.path.join(top_level, test_data_13B_014['external_name'])
         product_locator = test_data_13B_014['product_locator']
@@ -118,16 +136,51 @@ class YoinkTestCase(unittest.TestCase):
         exc_code = exc.value.code
         expected = Errors.FILE_EXISTS_ERROR.value
         self.assertEqual(expected, exc_code)
+        # TODO: same thing, but overwrite this time
 
-    def _initialize_test_data(self):
-        ext_name = '13B-014.sb28862036.eb29155786.56782.5720116088'
+    def test_no_bdfs_with_sdm_only(self):
 
-        product_locator = ProductLocatorLookup(self.db_settings).look_up_locator_for_ext_name(ext_name)
-        dict13b = {'external_name': ext_name, 'product_locator': product_locator}
+        report_key = 'VLA_SMALL'
+        report_spec = LOCATION_REPORTS[report_key]
+        external_name = report_spec['external_name']
+        expected_file_count = report_spec['file_count']
+        locations_report = get_locations_report(report_key)
+        self.assertEqual(expected_file_count, len(locations_report['files']),
+                         f'expecting {expected_file_count} files in all')
+        umask = os.umask(0o000)
+        top_level = tempfile.mkdtemp()
+        os.umask(umask)
+        product_locator = ProductLocatorLookup(self.db_settings).look_up_locator_for_ext_name(external_name)
 
-        to_return = {'13B-014': dict13b}
+        args = ['--product-locator', product_locator,
+                '--output-dir', top_level, '--dry', '--sdm-only', '--profile', self.profile]
+        namespace = get_arg_parser().parse_args(args)
 
-        return to_return
+        expected_file_count = self._count_sdms(locations_report)
+        yoink = Yoink(namespace, self.settings)
+        retrieved = yoink.run()
+        self.assertEqual(expected_file_count, len(retrieved),
+                         f"expecting {expected_file_count} SDMs from {os.path.basename(report_spec['filename'])}")
+
+        self._confirm_fetch(args, locations_report, retrieved)
+
+    def test_retrieve_from_report_file(self):
+        report_key = 'VLA_SMALL'
+        report_spec = LOCATION_REPORTS[report_key]
+        locations_report = get_locations_report(report_key)
+        expected_file_count = self._count_sdms(locations_report)
+        umask = os.umask(0o000)
+        top_level = tempfile.mkdtemp()
+        os.umask(umask)
+        target = os.path.join(top_level, 'locations.json')
+        location_file = write_locations_file(target, locations_report)
+        args = ['--location-file', location_file,
+                '--output-dir', top_level, '--sdm-only', '--profile', self.profile]
+        namespace = get_arg_parser().parse_args(args)
+        yoink = Yoink(namespace, self.settings)
+        retrieved = yoink.run()
+        self.assertEqual(expected_file_count, len(retrieved),
+                         f"expecting {expected_file_count} SDMs from {os.path.basename(report_spec['filename'])}")
 
     def test_gets_needed_test_data(self):
         self.assertIsNotNone(self.test_data['13B-014'])
@@ -136,6 +189,7 @@ class YoinkTestCase(unittest.TestCase):
         locator = data_13B['product_locator']
         self.assertTrue(locator.startswith('uid://evla/execblock/'))
 
+
     # TODO:
     #  def test_retries_failed_retrieval(self):
     #     bad_product_locator = 'foo'
@@ -143,6 +197,43 @@ class YoinkTestCase(unittest.TestCase):
     #     .
     #     .
 
+    def _initialize_test_data(self):
+        ext_name = '13B-014.sb28862036.eb29155786.56782.5720116088'
+
+        product_locator = ProductLocatorLookup(self.db_settings).look_up_locator_for_ext_name(ext_name)
+        dict13b = {'external_name': ext_name, 'product_locator': product_locator}
+
+        to_return = {'13B-014': dict13b}
+        return to_return
+
+
+    def _confirm_fetch(self, args: List, location_report: LocationsReport, retrieved: List):
+        match_count = 0
+        for file_spec in location_report['files']:
+            for file in retrieved:
+                if file_spec['relative_path'] == os.path.basename(file):
+                    if not '--dry' in args:
+                        if file_spec['size'] == os.path.getsize(file):
+                            match_count += 1
+                    else:
+                        match_count += 1
+        self.assertEqual(len(retrieved), match_count)
+
+    def _remove_large_files_from_location_report(self, locations_in: LocationsReport):
+        ''' strip files > 100000 bytes from location report, so we can try an actual stream without it taking forever
+
+            :returns: LocationsReport
+        '''
+
+        files = locations_in['files']
+        files_to_keep = [file for file in files if file['size'] <= 100000]
+        locations_out = locations_in.copy()
+        locations_out['files'] = [file for file in files_to_keep]
+        return locations_out
+
+    def _count_sdms(self, location_report: LocationsReport):
+        sdms_found = [f for f in location_report['files'] if re.match('.*\.(xml|bin)$', f['relative_path'])]
+        return len(sdms_found)
 
 if __name__ == '__main__':
     unittest.main()

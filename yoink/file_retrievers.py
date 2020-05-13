@@ -83,8 +83,9 @@ class NGASFileRetriever:
         """
         if not self.dry_run:
             basedir = os.path.dirname(destination)
-            if not os.access(basedir, os.W_OK):
-                terminal_exception(FileErrorException(f'output directory {basedir} is not writable'), )
+            if os.path.isdir(basedir):
+                if not os.access(basedir, os.W_OK):
+                    terminal_exception(FileErrorException(f'output directory {basedir} is not writable'), )
             try:
                 umask = os.umask(0o000)
                 Path(basedir).mkdir(parents=True, exist_ok=True)
@@ -133,9 +134,9 @@ class NGASFileRetriever:
                     ngams_status = soup.NgamsStatus.Status
                     message = ngams_status.get("Message")
 
-                    n_exc = NGASServiceErrorException(
+                    raise NGASServiceErrorException(
                         {'status_code': r.status_code, 'url': r.url, 'reason': r.reason, 'message': message})
-                    SystemExit(n_exc, Errors.NGAS_SERVICE_ERROR)
+
                 else:
                     self.log.info(f'retrieved {destination} from {r.url}')
 

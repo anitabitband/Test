@@ -1,3 +1,5 @@
+import http
+import json
 import logging
 import logging
 import os
@@ -8,7 +10,7 @@ from typing import List
 
 import pytest
 
-from yoink.errors import Errors
+from yoink.errors import Errors, NGASServiceErrorException
 from yoink.file_retrievers import NGASFileRetriever
 from yoink.utilities import Retryer, get_capo_settings, get_metadata_db_settings, ProductLocatorLookup, get_arg_parser, \
     path_is_accessible
@@ -76,7 +78,7 @@ class RetrieverTestCase(unittest.TestCase):
         server = file_spec['server']['server']
         retrieve_method = 'stream'
         retriever = NGASFileRetriever(namespace)
-        to_be_retrieved = os.path.join(destination, file_spec['relative_path'])
+        # to_be_retrieved = os.path.join(destination, file_spec['relative_path'])
 
         # exception should be thrown because one of the files to be retrieved is in the destination dir
         with pytest.raises(SystemExit) as exc:
@@ -84,6 +86,11 @@ class RetrieverTestCase(unittest.TestCase):
         exc_code = exc.value.code
         expected = Errors.FILE_EXISTS_ERROR.value
         self.assertEqual(expected, exc_code)
+
+    @unittest.skip('test_overwrite: not yet implemented')
+    def test_overwrite(self):
+        # TODO:
+        file_spec = self._get_test_filespec('SysPower.bin')
 
     # TODO: same test with mock copy
     def test_nothing_retrieved_in_dry_run(self):
@@ -104,10 +111,6 @@ class RetrieverTestCase(unittest.TestCase):
         retriever.retrieve(server, retrieve_method, file_spec)
         self.assertFalse(os.path.exists(to_be_retrieved), 'nothing should have been retrieved')
         self.assertTrue(retriever.fetch_attempted, 'streaming_fetch() should have been entered')
-
-    def test_no_bdfs_with_sdm_only(self):
-        # TODO NEXT
-        pass
 
     def test_stream_inaccessible_destination(self):
         top_level = tempfile.mkdtemp()
@@ -151,12 +154,11 @@ class RetrieverTestCase(unittest.TestCase):
         destination = os.path.join(top_level, file_spec['external_name'])
         to_be_retrieved = os.path.join(destination, file_spec['relative_path'])
 
-        with pytest.raises(SystemExit) as exc:
+        with pytest.raises(NGASServiceErrorException) as s_ex:
             retriever.retrieve(server, retrieve_method, file_spec)
-            self.assertFalse(os.path.exists(to_be_retrieved), 'nothing should have been retrieved')
-            exc_code = exc.value.code
-            expected = Errors.FILE_ERROR.value
-            self.assertEqual(expected, exc_code)
+        self.assertFalse(os.path.exists(to_be_retrieved), 'nothing should have been retrieved')
+        details = s_ex.value.args[0]
+        self.assertEqual(http.HTTPStatus.BAD_REQUEST, details['status_code'])
 
     def test_stream_no_data(self):
         top_level = tempfile.mkdtemp()
@@ -260,12 +262,11 @@ class RetrieverTestCase(unittest.TestCase):
 
         destination = os.path.join(top_level, file_spec['external_name'])
         to_be_retrieved = os.path.join(destination, file_spec['relative_path'])
-        with pytest.raises(SystemExit) as exc:
+        with pytest.raises(NGASServiceErrorException) as s_ex:
             retriever.retrieve(server, retrieve_method, file_spec)
         self.assertFalse(os.path.exists(to_be_retrieved), 'nothing should have been retrieved')
-        exc_code = exc.value.code
-        expected = Errors.NGAS_SERVICE_ERROR.value
-        self.assertEqual(expected, exc_code)
+        details = s_ex.value.args[0]
+        self.assertEqual(http.HTTPStatus.BAD_REQUEST, details['status_code'])
 
     def test_retryer_does_retry(self):
         retryer = Retryer(self.do_something_once, _MAX_TRIES, _SLEEP_INTERVAL_SECONDS)
@@ -326,6 +327,18 @@ class RetrieverTestCase(unittest.TestCase):
             del file['server']
             files.append(file)
         return files
+
+    def _get_test_filespec(self, target_filename):
+        test_data_dir = os.path.join(os.curdir, 'data')
+        self.assertTrue(os.path.isdir(test_data_dir))
+
+        report_file = os.path.join(test_data_dir, 'VLA_SMALL_EB.json')
+        self.assertTrue(os.path.isfile(report_file))
+        with open(report_file, 'r') as content:
+            locations_report = json.loads(content.read())
+        for file_spec in locations_report['files']:
+            if target_filename == file_spec['relative_path']:
+                return file_spec
 
 
 if __name__ == '__main__':

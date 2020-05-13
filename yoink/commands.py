@@ -32,8 +32,7 @@ class Yoink:
         self.servers_report = self.locations_report.servers_report
 
     def run(self):
-        fetcher = ParallelProductFetcher(self.args, self.settings,self.servers_report)
-        fetcher.run()
+        return ParallelProductFetcher(self.args, self.settings,self.servers_report).run()
 
 
 def main():

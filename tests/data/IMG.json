@@ -1,0 +1,33 @@
+{
+  "files": [
+    {
+      "ngas_file_id": "uid____evla_image_56a10be7-f1c2-4788-8651-6ecc5bfbc2f1.fits",
+      "relative_path": "VLASS1.1.ql.T01t01.J000232-383000.10.2048.v1.I.iter1.image.pbcor.tt0.subim.fits",
+      "checksum": "-1675665022",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 55425600,
+      "subdirectory": "uid___evla_image_0590fab3-c386-4513-b1cb-67ce12c96999",
+      "server": {
+        "server": "nmngas01.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    },
+    {
+      "ngas_file_id": "uid____evla_image_b10137d8-d2ef-4286-a5c9-a3b8cd74f276.fits",
+      "relative_path": "VLASS1.1.ql.T01t01.J000232-383000.10.2048.v1.I.iter1.image.pbcor.tt0.rms.subim.fits",
+      "checksum": "1271435719",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 55425600,
+      "subdirectory": "uid___evla_image_0590fab3-c386-4513-b1cb-67ce12c96999",
+      "server": {
+        "server": "nmngas02.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    }
+  ],
+  "aggregate_size": 110851200
+}
