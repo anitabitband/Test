@@ -14,7 +14,7 @@ from tests.testing_utils import get_locations_report, LOCATION_REPORTS, get_mini
 from yoink.commands import Yoink
 from yoink.errors import Errors, NGASServiceErrorException
 from yoink.utilities import get_capo_settings, get_arg_parser, ProductLocatorLookup, get_metadata_db_settings, \
-    LocationsReport
+    LocationsReport, ExecutionSite, RetrievalMode
 
 LOG_FORMAT = "%(name)s.%(module)s.%(funcName)s, %(lineno)d: %(message)s"
 logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
@@ -27,11 +27,11 @@ class YoinkTestCase(unittest.TestCase):
         The reason is this algorithm used in LocationsReport:
 
             for f in files_report['files']:
-                if f['server']['cluster'] == 'DSOC' and \
+                if f['server']['cluster'] == Cluster.DSOC and \
                         f['server']['location'] == self.settings['execution_site']:
-                    f['server']['retrieve_method'] = 'copy'
+                    f['server']['retrieve_method'] = RetrievalMode.COPY
                 else:
-                    f['server']['retrieve_method'] = 'stream'
+                    f['server']['retrieve_method'] = RetrievalMode.STREAM
 
 
         Be sure to have on the test system a local profile (local.properties) that meets these criteria:
@@ -74,26 +74,23 @@ class YoinkTestCase(unittest.TestCase):
         umask = os.umask(0o000)
         top_level = tempfile.mkdtemp()
         os.umask(umask)
-        # destination = os.path.join(top_level, test_data_13B_014['external_name'])
-        #
-        # umask = os.umask(0o000)
-        # Path(destination).mkdir(parents=True, exist_ok=True)
-        # os.umask(umask)
 
         product_locator = test_data_13B_014['product_locator']
 
         # use site from non-local profile to guarantee copy attempt
         local_exec_site = self.settings['execution_site']
-        self.settings['execution_site'] = 'DSOC'
+        self.settings['execution_site'] = ExecutionSite.DSOC
+
         args = ['--product-locator', product_locator,
-                '--output-dir', top_level, '--sdm-only', '--profile', self.profile, '--verbose']
+                '--output-dir', top_level, '--sdm-only',
+                '--profile', self.settings['execution_site'].value, '--verbose']
         parser = get_arg_parser()
         namespace = parser.parse_args(args)
         yoink = Yoink(namespace, self.settings)
         servers_report = yoink.servers_report
         for server in servers_report:
             entry = servers_report[server]
-            self.assertTrue(entry['retrieve_method'] == 'copy')
+            self.assertTrue(entry['retrieve_method'] == RetrievalMode.COPY)
 
         try:
             with pytest.raises(NGASServiceErrorException) as s_ex:

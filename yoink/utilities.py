@@ -12,6 +12,7 @@ import logging
 import os
 import pathlib
 import time
+from enum import Enum
 from typing import List
 
 import psycopg2 as pg
@@ -134,7 +135,6 @@ def get_metadata_db_settings(profile):
     qualified_fields = ['metadataDatabase.' + field for field in fields]
     for field in qualified_fields:
         _LOG.debug(f'looking for {field}....')
-        # field = 'metadataDatabase.' + field
         try:
             value = c[field]
             result[field] = value
@@ -169,12 +169,15 @@ class LocationsReport:
         the location service itself doesn't know because it depends on
         which site yoink is running on, which site has the data and whether
         the NGAS cluster supports direct copy. """
+        dsoc_cluster = Cluster.DSOC
+        exec_site = self.settings['execution_site']
         for f in files_report['files']:
-            if f['server']['cluster'] == 'DSOC' and \
-                    f['server']['location'] == self.settings['execution_site']:
-                f['server']['retrieve_method'] = 'copy'
+            location = f['server']['location']
+            if f['server']['cluster'] == dsoc_cluster.value \
+                    and (location == exec_site or location == str(exec_site)):
+                f['server']['retrieve_method'] = RetrievalMode.COPY
             else:
-                f['server']['retrieve_method'] = 'stream'
+                f['server']['retrieve_method'] = RetrievalMode.STREAM
         return files_report
 
     def _filter_sdm_only(self, files_report):
@@ -337,3 +340,33 @@ class Retryer:
                     raise exc
 
         return num_tries
+
+
+class Location(Enum):
+    DSOC  = 'DSOC'
+    NAASC = 'NAASC'
+
+    def __str__(self):
+        return self.value
+
+
+class Cluster(Enum):
+    DSOC  = 'DSOC'
+    NAASC = 'NAASC'
+
+    def __str__(self):
+        return self.value
+
+
+class ExecutionSite(Enum):
+    DSOC  = 'DSOC'
+    NAASC = 'NAASC'
+
+    def __str__(self):
+        return self.value
+
+
+class RetrievalMode(Enum):
+    STREAM = 'stream'
+    COPY   = 'copy'
+

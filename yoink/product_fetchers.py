@@ -14,7 +14,7 @@ class BaseProductFetcher:
     """ This is a base class for fetchers. """
 
     def __init__(self, args, settings, servers_report):
-        self.log = logging.getLogger(self.__class__.__name__)
+        self._LOG = logging.getLogger(self.__class__.__name__)
         self.args = args
         self.output_dir = args.output_dir
         self.force_overwrite = args.force
@@ -29,14 +29,14 @@ class BaseProductFetcher:
         num_files = len(file_specs)
         count = 0
 
-        self.log.info(f'>>> Got {num_files} files to retrieve from {server} by {retrieve_method}')
+        self._LOG.info(f'>>> Got {num_files} files to retrieve from {server} by {retrieve_method}')
         try:
             for file_spec in file_specs:
                 count += 1
-                self.log.info(f">>> retrieving {file_spec['relative_path']} "
+                self._LOG.info(f">>> retrieving {file_spec['relative_path']} "
                               f"({file_spec['size']} bytes, no. {count} of {num_files})....")
                 self.retrieved.append(retriever.retrieve(server, retrieve_method, file_spec))
-            self.log.info(f'>>> {len(self.retrieved)} files retrieved from {server} on this pass.')
+            self._LOG.info(f'>>> {len(self.retrieved)} files retrieved from {server} on this pass.')
             return num_files
         except NGASServiceErrorException as n_exc:
             raise n_exc
@@ -50,9 +50,9 @@ class SerialProductFetcher(BaseProductFetcher):
         super().__init__(args, settings, servers_report)
 
     def run(self):
-        self.log.debug('writing to {}'.format(self.output_dir))
-        self.log.debug('dry run: {}'.format(self.dry_run))
-        self.log.debug(f'force overwrite: {self.force_overwrite}')
+        self._LOG.debug('writing to {}'.format(self.output_dir))
+        self._LOG.debug('dry run: {}'.format(self.dry_run))
+        self._LOG.debug(f'force overwrite: {self.force_overwrite}')
         for server in self.servers_report:
             self.retrieve_files(server,
                                 self.servers_report[server]['retrieve_method'],
@@ -123,7 +123,7 @@ class ParallelProductFetcher(BaseProductFetcher):
                     num_files_retrieved += future.result()
                     if (num_files_retrieved != self.num_files_expected):
                         # TODO: throw exception
-                        self.log.error(f'{self.num_files_expected} files expected, '
+                        self._LOG.error(f'{self.num_files_expected} files expected, '
                                        f'but only {num_files_retrieved} retrieved')
                         return num_files_retrieved
                 return self.retrieved
@@ -131,5 +131,5 @@ class ParallelProductFetcher(BaseProductFetcher):
                 raise n_exc
             except AttributeError as a_err:
                 # TODO: is this really spurious, thrown only when there are no more files to retrieve?
-                self.log.error(f'>>> {a_err}')
+                self._LOG.error(f'>>> {a_err}')
                 return self.retrieved

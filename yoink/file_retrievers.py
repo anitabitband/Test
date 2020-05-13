@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup
 
 from yoink.errors import SizeMismatchException, NGASServiceErrorException, FileErrorException, Errors, \
     terminal_exception, MissingSettingsException
+from yoink.utilities import RetrievalMode
 
 _DIRECT_COPY_PLUGIN = 'ngamsDirectCopyDppi'
 
@@ -20,7 +21,7 @@ class NGASFileRetriever:
     the requested location. """
 
     def __init__(self, args):
-        self.log = logging.getLogger(self.__class__.__name__)
+        self._LOG = logging.getLogger(self.__class__.__name__)
         self.output_dir = args.output_dir
         self.dry_run = args.dry_run
         self.force_overwrite = args.force
@@ -47,9 +48,9 @@ class NGASFileRetriever:
             terminal_exception(exc)
 
 
-        if retrieve_method == 'copy':
+        if retrieve_method == RetrievalMode.COPY:
             self._copying_fetch(download_url, destination, file_spec)
-        elif retrieve_method == 'stream':
+        elif retrieve_method == RetrievalMode.STREAM:
             self._streaming_fetch(download_url, destination, file_spec)
         self._check_result(destination, file_spec)
 
@@ -100,7 +101,7 @@ class NGASFileRetriever:
         :param destination: the path to the file to check
         :param file_spec: the file specification of that file
         """
-        self.log.debug(f'verifying fetch of {destination}')
+        self._LOG.debug(f'verifying fetch of {destination}')
         if not self.dry_run:
             if not os.path.exists(destination):
                 terminal_exception(NGASServiceErrorException(f'file not delivered to {destination}'))
@@ -108,7 +109,7 @@ class NGASFileRetriever:
                 terminal_exception(SizeMismatchException(
                     f"file retrieval size mismatch on {destination}: "
                     f"expected {file_spec['size']}, got {os.path.getsize(destination)}"))
-            self.log.debug('\tlooks good; sizes match')
+            self._LOG.debug('\tlooks good; sizes match')
 
     def _copying_fetch(self, download_url, destination, file_spec):
         """ Pull a file out of NGAS via the direct copy plugin.
@@ -122,14 +123,14 @@ class NGASFileRetriever:
                   'processing': _DIRECT_COPY_PLUGIN,
                   'processingPars': 'outfile=' + destination,
                   'file_version': file_spec['version']}
-        self.log.debug('attempting copying download:\nurl: {}\ndestination: {}'
-                       .format(download_url, destination))
+        self._LOG.debug('attempting copying download:\nurl: {}\ndestination: {}'
+                        .format(download_url, destination))
         if not self.dry_run:
             with requests.Session() as s:
                 r = s.get(download_url, params=params)
 
                 if r.status_code != requests.codes.ok:
-                    self.log.error(f'NGAS does not like this request:\n{r.url}')
+                    self._LOG.error(f'NGAS does not like this request:\n{r.url}')
                     soup = BeautifulSoup(r.text, 'lxml-xml')
                     ngams_status = soup.NgamsStatus.Status
                     message = ngams_status.get("Message")
@@ -138,7 +139,7 @@ class NGASFileRetriever:
                         {'status_code': r.status_code, 'url': r.url, 'reason': r.reason, 'message': message})
 
                 else:
-                    self.log.info(f'retrieved {destination} from {r.url}')
+                    self._LOG.info(f'retrieved {destination} from {r.url}')
 
     def _streaming_fetch(self, download_url, destination, file_spec):
         """ Pull a file out of NGAS via streaming.
@@ -151,7 +152,7 @@ class NGASFileRetriever:
         params = {'file_id': file_spec['ngas_file_id'],
                   'file_version': file_spec['version']}
 
-        self.log.debug(f'attempting streaming download:\nurl: {download_url}\ndestination: {destination}')
+        self._LOG.debug(f'attempting streaming download:\nurl: {download_url}\ndestination: {destination}')
         self.fetch_attempted = True
         if not self.dry_run:
             with requests.Session() as s:
@@ -165,7 +166,7 @@ class NGASFileRetriever:
                     terminal_exception(NGASServiceErrorException(f'problem connecting with {download_url}'))
 
                 if r.status_code != requests.codes.ok:
-                    self.log.error(f'NGAS does not like this request:\n{r.url}')
+                    self._LOG.error(f'NGAS does not like this request:\n{r.url}')
                     soup = BeautifulSoup(r.text, 'lxml-xml')
                     ngams_status = soup.NgamsStatus.Status
                     message = ngams_status.get("Message")
@@ -174,5 +175,5 @@ class NGASFileRetriever:
                         {'status_code': r.status_code, 'url': r.url, 'reason': r.reason, 'message': message})
                     SystemExit(n_exc, Errors.NGAS_SERVICE_ERROR)
                 else:
-                    self.log.info(f'retrieved {destination} from {r.url}')
+                    self._LOG.info(f'retrieved {destination} from {r.url}')
 

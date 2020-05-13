@@ -13,7 +13,7 @@ import pytest
 from yoink.errors import Errors, NGASServiceErrorException
 from yoink.file_retrievers import NGASFileRetriever
 from yoink.utilities import Retryer, get_capo_settings, get_metadata_db_settings, ProductLocatorLookup, get_arg_parser, \
-    path_is_accessible
+    path_is_accessible, Cluster, RetrievalMode
 
 LOG_FORMAT = "%(name)s.%(module)s.%(funcName)s, %(lineno)d: %(message)s"
 logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
@@ -24,8 +24,6 @@ _A_FEW_TRIES = 3
 _SLEEP_INTERVAL_SECONDS = 1
 
 # TODO after implementing no-BDFs test: add retry
-
-# TODO: GET RID OF MAGIC STRINGS AND NUMBERS for location, cluster, execution_site, retrieval mode
 
 class RetrieverTestCase(unittest.TestCase):
 
@@ -48,7 +46,7 @@ class RetrieverTestCase(unittest.TestCase):
         namespace = parser.parse_args(args)
 
         server = file_spec['server']['server']
-        retrieve_method = 'stream'
+        retrieve_method = RetrievalMode.STREAM
         retriever = NGASFileRetriever(namespace)
         retrieved = retriever.retrieve(server, retrieve_method, file_spec)
         self.assertTrue(os.path.exists(retrieved), 'retrieved file must exist')
@@ -76,7 +74,7 @@ class RetrieverTestCase(unittest.TestCase):
                 '--output-dir', destination, '--sdm-only', '--profile', self.profile]
         namespace = get_arg_parser().parse_args(args)
         server = file_spec['server']['server']
-        retrieve_method = 'stream'
+        retrieve_method = RetrievalMode.STREAM
         retriever = NGASFileRetriever(namespace)
         # to_be_retrieved = os.path.join(destination, file_spec['relative_path'])
 
@@ -105,7 +103,7 @@ class RetrieverTestCase(unittest.TestCase):
         namespace = get_arg_parser().parse_args(args)
 
         server = file_spec['server']['server']
-        retrieve_method = 'stream'
+        retrieve_method = RetrievalMode.STREAM
         retriever = NGASFileRetriever(namespace)
         to_be_retrieved = os.path.join(destination, file_spec['relative_path'])
         retriever.retrieve(server, retrieve_method, file_spec)
@@ -125,7 +123,7 @@ class RetrieverTestCase(unittest.TestCase):
         namespace = get_arg_parser().parse_args(args)
 
         server = file_spec['server']['server']
-        retrieve_method = 'stream'
+        retrieve_method = RetrievalMode.STREAM
         retriever = NGASFileRetriever(namespace)
 
         destination = os.path.join(top_level, file_spec['external_name'])
@@ -148,7 +146,7 @@ class RetrieverTestCase(unittest.TestCase):
         namespace = get_arg_parser().parse_args(args)
 
         server = file_spec['server']['server']
-        retrieve_method = 'copy'
+        retrieve_method = RetrievalMode.COPY
         retriever = NGASFileRetriever(namespace)
 
         destination = os.path.join(top_level, file_spec['external_name'])
@@ -169,7 +167,7 @@ class RetrieverTestCase(unittest.TestCase):
         namespace = get_arg_parser().parse_args(args)
 
         server = file_spec['server']['server']
-        retrieve_method = 'stream'
+        retrieve_method = RetrievalMode.STREAM
         retriever = NGASFileRetriever(namespace)
 
         destination = os.path.join(top_level, file_spec['external_name'])
@@ -192,7 +190,7 @@ class RetrieverTestCase(unittest.TestCase):
         namespace = get_arg_parser().parse_args(args)
 
         server = file_spec['server']['server']
-        retrieve_method = 'stream'
+        retrieve_method = RetrievalMode.STREAM
         retriever = NGASFileRetriever(namespace)
 
         destination = os.path.join(top_level, file_spec['external_name'])
@@ -213,7 +211,7 @@ class RetrieverTestCase(unittest.TestCase):
         namespace = get_arg_parser().parse_args(args)
 
         server = file_spec['server']['server']
-        retrieve_method = 'stream'
+        retrieve_method = RetrievalMode.STREAM
         retriever = NGASFileRetriever(namespace)
 
         destination = os.path.join(top_level, file_spec['external_name'])
@@ -234,7 +232,7 @@ class RetrieverTestCase(unittest.TestCase):
         namespace = get_arg_parser().parse_args(args)
 
         server = 'foo'
-        retrieve_method = 'stream'
+        retrieve_method = RetrievalMode.STREAM
         retriever = NGASFileRetriever(namespace)
 
         destination = os.path.join(top_level, file_spec['external_name'])
@@ -257,7 +255,7 @@ class RetrieverTestCase(unittest.TestCase):
         namespace = get_arg_parser().parse_args(args)
 
         server = file_spec['server']['server']
-        retrieve_method = 'copy'
+        retrieve_method = RetrievalMode.COPY
         retriever = NGASFileRetriever(namespace)
 
         destination = os.path.join(top_level, file_spec['external_name'])
@@ -300,7 +298,7 @@ class RetrieverTestCase(unittest.TestCase):
     def _initialize_13B_014_test_data(self):
         ext_name = '13B-014.sb29151475.eb29223944.56810.442529050924'
         product_locator = ProductLocatorLookup(self.db_settings).look_up_locator_for_ext_name(ext_name)
-        server = {'server': 'nmngas03.aoc.nrao.edu:7777', 'location': 'somewhere_else', 'cluster': 'DSOC'}
+        server = {'server': 'nmngas03.aoc.nrao.edu:7777', 'location': 'somewhere_else', 'cluster': Cluster.DSOC}
 
         # IRL there will be a -list- of files
         files = [
