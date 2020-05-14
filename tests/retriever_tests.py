@@ -1,7 +1,6 @@
 import http
 import json
 import logging
-import logging
 import os
 import tempfile
 import unittest
@@ -12,7 +11,8 @@ import pytest
 
 from yoink.errors import Errors, NGASServiceErrorException
 from yoink.file_retrievers import NGASFileRetriever
-from yoink.utilities import Retryer, get_capo_settings, get_metadata_db_settings, ProductLocatorLookup, get_arg_parser, \
+from yoink.utilities import Retryer, get_capo_settings, \
+    get_metadata_db_settings, ProductLocatorLookup, get_arg_parser, \
     path_is_accessible, Cluster, RetrievalMode
 
 LOG_FORMAT = "%(name)s.%(module)s.%(funcName)s, %(lineno)d: %(message)s"
@@ -26,9 +26,13 @@ _SLEEP_INTERVAL_SECONDS = 1
 # TODO after implementing no-BDFs test: add retry
 
 class RetrieverTestCase(unittest.TestCase):
+    """
+    Tests for product retrieval
+    """
 
     @classmethod
     def setUpClass(cls) -> None:
+        ''' do this before running tests '''
         # local profile is required to force streaming
         cls.profile = 'local'
         cls.settings = get_capo_settings(cls.profile)
@@ -42,7 +46,8 @@ class RetrieverTestCase(unittest.TestCase):
 
         parser = get_arg_parser()
         args = ['--product-locator', file_spec['product_locator'],
-                '--output-dir', top_level, '--sdm-only', '--profile', self.profile]
+                '--output-dir', top_level,
+                '--sdm-only', '--profile', self.profile]
         namespace = parser.parse_args(args)
 
         server = file_spec['server']['server']
@@ -50,13 +55,19 @@ class RetrieverTestCase(unittest.TestCase):
         retriever = NGASFileRetriever(namespace)
         retrieved = retriever.retrieve(server, retrieve_method, file_spec)
         self.assertTrue(os.path.exists(retrieved), 'retrieved file must exist')
-        self.assertTrue(os.path.isfile(retrieved), 'retrieved file must be a regular file')
+        self.assertTrue(os.path.isfile(retrieved),
+                        'retrieved file must be a regular file')
         self.assertEqual(file_spec['size'], os.path.getsize(retrieved),
-                         f"expecting {os.path.basename(retrieved)} to be {file_spec['size']} bytes")
+                         f"expecting {os.path.basename(retrieved)} to be "
+                         f"{file_spec['size']} bytes")
 
-    # TODO: find a way to test that overwrite DOES occur with --forced, but WITHOUT actually fetching
+    # TODO: find a way to test that overwrite DOES occur with --forced,
+    #  but WITHOUT actually fetching
     # TODO: same test with multiple files, mock copy
     def test_no_overwrite_if_not_forced(self):
+        ''' if the --force flag is supplied, any file that exists at the
+            destination should NOT be retrieved; throw error instead
+        '''
         top_level = tempfile.mkdtemp()
         file_spec = self.test_data['files'][0]
         destination = os.path.join(top_level, file_spec['external_name'])
@@ -71,14 +82,15 @@ class RetrieverTestCase(unittest.TestCase):
         self.assertFalse(0 == os.path.getsize(fake_file))
 
         args = ['--product-locator', file_spec['product_locator'],
-                '--output-dir', destination, '--sdm-only', '--profile', self.profile]
+                '--output-dir', destination, '--sdm-only',
+                '--profile', self.profile]
         namespace = get_arg_parser().parse_args(args)
         server = file_spec['server']['server']
         retrieve_method = RetrievalMode.STREAM
         retriever = NGASFileRetriever(namespace)
-        # to_be_retrieved = os.path.join(destination, file_spec['relative_path'])
 
-        # exception should be thrown because one of the files to be retrieved is in the destination dir
+        # exception should be thrown because one of the files to be retrieved
+        # is in the destination dir
         with pytest.raises(SystemExit) as exc:
             retriever.retrieve(server, retrieve_method, file_spec)
         exc_code = exc.value.code
@@ -107,8 +119,10 @@ class RetrieverTestCase(unittest.TestCase):
         retriever = NGASFileRetriever(namespace)
         to_be_retrieved = os.path.join(destination, file_spec['relative_path'])
         retriever.retrieve(server, retrieve_method, file_spec)
-        self.assertFalse(os.path.exists(to_be_retrieved), 'nothing should have been retrieved')
-        self.assertTrue(retriever.fetch_attempted, 'streaming_fetch() should have been entered')
+        self.assertFalse(os.path.exists(to_be_retrieved),
+                         'nothing should have been retrieved')
+        self.assertTrue(retriever.fetch_attempted,
+                        'streaming_fetch() should have been entered')
 
     def test_stream_inaccessible_destination(self):
         top_level = tempfile.mkdtemp()
@@ -116,7 +130,8 @@ class RetrieverTestCase(unittest.TestCase):
         file_spec = self.test_data['files'][0]
         # make directory read-only
         os.chmod(top_level, 0o444)
-        self.assertFalse(path_is_accessible(top_level), 'output directory should not be accessible')
+        self.assertFalse(path_is_accessible(top_level),
+                         'output directory should not be accessible')
 
         args = ['--product-locator', file_spec['product_locator'],
                 '--output-dir', top_level, '--profile', self.profile]
@@ -130,7 +145,8 @@ class RetrieverTestCase(unittest.TestCase):
         to_be_retrieved = os.path.join(destination, file_spec['relative_path'])
         with pytest.raises(SystemExit) as exc:
             retriever.retrieve(server, retrieve_method, file_spec)
-        self.assertFalse(os.path.exists(to_be_retrieved), 'nothing should have been retrieved')
+        self.assertFalse(os.path.exists(to_be_retrieved),
+                         'nothing should have been retrieved')
         exc_code = exc.value.code
         expected = Errors.FILE_ERROR.value
         self.assertEqual(expected, exc_code)
@@ -154,7 +170,8 @@ class RetrieverTestCase(unittest.TestCase):
 
         with pytest.raises(NGASServiceErrorException) as s_ex:
             retriever.retrieve(server, retrieve_method, file_spec)
-        self.assertFalse(os.path.exists(to_be_retrieved), 'nothing should have been retrieved')
+        self.assertFalse(os.path.exists(to_be_retrieved),
+                         'nothing should have been retrieved')
         details = s_ex.value.args[0]
         self.assertEqual(http.HTTPStatus.BAD_REQUEST, details['status_code'])
 
@@ -174,7 +191,8 @@ class RetrieverTestCase(unittest.TestCase):
         to_be_retrieved = os.path.join(destination, file_spec['relative_path'])
         with pytest.raises(SystemExit) as exc:
             retriever.retrieve(server, retrieve_method, {})
-        self.assertFalse(os.path.exists(to_be_retrieved), 'nothing should have been retrieved')
+        self.assertFalse(os.path.exists(to_be_retrieved),
+                         'nothing should have been retrieved')
         exc_code = exc.value.code
         expected = Errors.MISSING_SETTING.value
         self.assertEqual(expected, exc_code)
@@ -197,7 +215,8 @@ class RetrieverTestCase(unittest.TestCase):
         to_be_retrieved = os.path.join(destination, file_spec['relative_path'])
         with pytest.raises(SystemExit) as exc:
             retriever.retrieve(server, retrieve_method, file_spec)
-        self.assertFalse(os.path.exists(to_be_retrieved), 'nothing should have been retrieved')
+        self.assertFalse(os.path.exists(to_be_retrieved),
+                         'nothing should have been retrieved')
         exc_code = exc.value.code
         expected = Errors.SIZE_MISMATCH.value
         self.assertEqual(expected, exc_code)
@@ -215,10 +234,12 @@ class RetrieverTestCase(unittest.TestCase):
         retriever = NGASFileRetriever(namespace)
 
         destination = os.path.join(top_level, file_spec['external_name'])
-        to_be_retrieved = os.path.join(destination, 'not_the_droids_youre_looking_for')
+        to_be_retrieved = os.path.join(destination,
+                                       'not_the_droids_youre_looking_for')
         with pytest.raises(SystemExit) as exc:
             retriever.retrieve(server, retrieve_method, {})
-        self.assertFalse(os.path.exists(to_be_retrieved), 'nothing should have been retrieved')
+        self.assertFalse(os.path.exists(to_be_retrieved),
+                         'nothing should have been retrieved')
         exc_code = exc.value.code
         expected = Errors.MISSING_SETTING.value
         self.assertEqual(expected, exc_code)
@@ -239,13 +260,15 @@ class RetrieverTestCase(unittest.TestCase):
         to_be_retrieved = os.path.join(destination, file_spec['relative_path'])
         with pytest.raises(SystemExit) as exc:
             retriever.retrieve(server, retrieve_method, file_spec)
-        self.assertFalse(os.path.exists(to_be_retrieved), 'nothing should have been retrieved')
+        self.assertFalse(os.path.exists(to_be_retrieved),
+                         'nothing should have been retrieved')
         exc_code = exc.value.code
         expected = Errors.NGAS_SERVICE_ERROR.value
         self.assertEqual(expected, exc_code)
 
     def test_copy_attempt(self):
-        ''' we can expect a copy ALWAYS to fail, because NGAS can't write to a local destination
+        ''' we can expect a copy ALWAYS to fail,
+            because NGAS can't write to a local destination
         '''
         top_level = tempfile.mkdtemp()
         file_spec = self.test_data['files'][0]
@@ -262,24 +285,29 @@ class RetrieverTestCase(unittest.TestCase):
         to_be_retrieved = os.path.join(destination, file_spec['relative_path'])
         with pytest.raises(NGASServiceErrorException) as s_ex:
             retriever.retrieve(server, retrieve_method, file_spec)
-        self.assertFalse(os.path.exists(to_be_retrieved), 'nothing should have been retrieved')
+        self.assertFalse(os.path.exists(to_be_retrieved),
+                         'nothing should have been retrieved')
         details = s_ex.value.args[0]
         self.assertEqual(http.HTTPStatus.BAD_REQUEST, details['status_code'])
 
     def test_retryer_does_retry(self):
         retryer = Retryer(self.do_something_once, _MAX_TRIES, _SLEEP_INTERVAL_SECONDS)
-        self.assertEqual(1, retryer.retry('I am doing something once'), 'expecting 1 retry')
+        self.assertEqual(1, retryer.retry(
+            'I am doing something once'), 'expecting 1 retry')
 
         num_tries_expected = _MAX_TRIES
         num_tries_actual   = 0
-        retryer = Retryer(self.do_something_wrong, _MAX_TRIES, _SLEEP_INTERVAL_SECONDS)
+        retryer = Retryer(
+            self.do_something_wrong, _MAX_TRIES, _SLEEP_INTERVAL_SECONDS)
         while num_tries_actual < num_tries_expected:
             try:
                 num_tries_actual += retryer.retry('This will never work')
             except AssertionError as a_exc:
-                _LOG.info(f'{a_exc} after {num_tries_actual} tries; going to give it another whirl')
+                _LOG.info(f'{a_exc} after {num_tries_actual} tries; '
+                          f'going to give it another whirl')
 
-        self.assertEqual(num_tries_expected, num_tries_actual, 'expecting maximum number of retries')
+        self.assertEqual(num_tries_expected, num_tries_actual,
+                         'expecting maximum number of retries')
 
     def do_something_once(self, args: List):
         _LOG.info(f'doing something once with args: {args}')
@@ -290,15 +318,18 @@ class RetrieverTestCase(unittest.TestCase):
         raise SystemExit(Exception(args))
 
     def do_something_a_few_times(self, num_tries: int):
-        _LOG.info(f'doing something a few times; this is iteration #{num_tries}')
+        _LOG.info(f'doing something a few times; this is #{num_tries}')
         if _A_FEW_TRIES > num_tries:
             raise Exception(num_tries)
         return num_tries
 
     def _initialize_13B_014_test_data(self):
         ext_name = '13B-014.sb29151475.eb29223944.56810.442529050924'
-        product_locator = ProductLocatorLookup(self.db_settings).look_up_locator_for_ext_name(ext_name)
-        server = {'server': 'nmngas03.aoc.nrao.edu:7777', 'location': 'somewhere_else', 'cluster': Cluster.DSOC}
+        product_locator = ProductLocatorLookup(self.db_settings)\
+            .look_up_locator_for_ext_name(ext_name)
+        server = {'server': 'nmngas03.aoc.nrao.edu:7777',
+                  'location': 'somewhere_else',
+                  'cluster': Cluster.DSOC}
 
         # IRL there will be a -list- of files
         files = [
@@ -317,7 +348,8 @@ class RetrieverTestCase(unittest.TestCase):
         return {'files': files}
 
     def _get_test_files(self):
-        ''' for the retriever interface: return each location report's information -minus- server
+        ''' for the retriever interface: return each location report's
+            information -minus- server
         '''
         files = []
         for location_report in self.test_data[0].files:
@@ -327,6 +359,7 @@ class RetrieverTestCase(unittest.TestCase):
         return files
 
     def _get_test_filespec(self, target_filename):
+        ''' grab location report data for just the specified file '''
         test_data_dir = os.path.join(os.curdir, 'data')
         self.assertTrue(os.path.isdir(test_data_dir))
 

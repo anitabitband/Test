@@ -1,16 +1,17 @@
-# -*- coding: utf-8 -*-
-
-# Assorted constants and functions involving errors goes here.
-
 import logging
 import sys
 import traceback
 from enum import Enum
 
-LOG = logging.getLogger(__name__)
+_LOG = logging.getLogger(__name__)
 
 # TODO: every one of these must be tested
 class Errors(Enum):
+    """
+    Assorted constants and functions involving errors
+
+    """
+
     NO_PROFILE = 1
     MISSING_SETTING = 2
     LOCATION_SERVICE_TIMEOUT = 3
@@ -90,6 +91,8 @@ TERMINAL_ERRORS = {
 
 
 def get_error_descriptions():
+    ''' user-friendly display of errors
+    '''
     result = 'Return Codes:\n'
     for error in Errors:
         result += '\t{}: {}\n'.format(error.value, TERMINAL_ERRORS[error])
@@ -97,15 +100,19 @@ def get_error_descriptions():
 
 
 def terminal_error(errno):
+    ''' report error, then throw in the towel
+    '''
     if errno in TERMINAL_ERRORS:
-        LOG.error(TERMINAL_ERRORS[errno])
+        _LOG.error(TERMINAL_ERRORS[errno])
     else:
-        LOG.error('unspecified error {}'.format(errno))
+        _LOG.error('unspecified error {}'.format(errno))
 
     sys.exit(errno.value)
 
 
 def exception_to_error(exception):
+    ''' translate an exception to one of our custom errors
+    '''
     switcher = {
         'NoProfileException': Errors.NO_PROFILE,
         'MissingSettingsException': Errors.MISSING_SETTING,
@@ -124,7 +131,9 @@ def exception_to_error(exception):
 
 
 def terminal_exception(exception):
+    ''' report exception, then throw in the towel
+    '''
     errorno = exception_to_error(exception)
-    LOG.debug(traceback.format_exc())
-    LOG.error(str(exception))
+    _LOG.debug(traceback.format_exc())
+    _LOG.error(str(exception))
     sys.exit(errorno.value)

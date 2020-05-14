@@ -17,10 +17,11 @@ from typing import List
 
 import psycopg2 as pg
 import requests
-from pycapo import *
+from pycapo import CapoConfig
 
-from yoink.errors import get_error_descriptions, NoProfileException, MissingSettingsException, \
-    FileErrorException, LocationServiceErrorException, LocationServiceRedirectsException, \
+from yoink.errors import get_error_descriptions, NoProfileException, \
+    MissingSettingsException, FileErrorException, \
+    LocationServiceErrorException, LocationServiceRedirectsException, \
     LocationServiceTimeoutException, NoLocatorException
 
 LOG_FORMAT = "%(name)s.%(module)s.%(funcName)s, %(lineno)d: %(message)s"
@@ -29,22 +30,25 @@ _LOG = logging.getLogger(__name__)
 
 # Prologue and epilogue for the command line parser.
 _PROLOGUE = \
-    """Retrieve a product (a science product or an ancillary product) from the NRAO archive,
+    """Retrieve a product (a science product or an ancillary product) 
+from the NRAO archive,
 either by specifying the product's locator or by providing the path to a product
 locator report."""
 _EPILOGUE = get_error_descriptions()
 
 # This is a dictionary of required CAPO settings and the attribute names we'll store them as.
 REQUIRED_SETTINGS = {
-    'EDU.NRAO.ARCHIVE.DATAFETCHER.DATAFETCHERSETTINGS.LOCATORSERVICEURLPREFIX': 'locator_service_url',
-    'EDU.NRAO.ARCHIVE.DATAFETCHER.DATAFETCHERSETTINGS.EXECUTIONSITE': 'execution_site',
-    'EDU.NRAO.ARCHIVE.DATAFETCHER.DATAFETCHERSETTINGS.DEFAULTTHREADSPERHOST': 'threads_per_host'
+    'EDU.NRAO.ARCHIVE.DATAFETCHER.DATAFETCHERSETTINGS.LOCATORSERVICEURLPREFIX':
+        'locator_service_url',
+    'EDU.NRAO.ARCHIVE.DATAFETCHER.DATAFETCHERSETTINGS.EXECUTIONSITE':
+        'execution_site',
+    'EDU.NRAO.ARCHIVE.DATAFETCHER.DATAFETCHERSETTINGS.DEFAULTTHREADSPERHOST':
+        'threads_per_host'
 }
 
-def configure_logging():
-    logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
-
 def path_is_accessible(path):
+    ''' Is this path readable, executable, and writable?
+    '''
     can_access = os.access(path, os.F_OK)
     can_access = can_access and os.path.isdir(path)
     can_access = can_access and os.access(path, os.R_OK)
@@ -54,15 +58,18 @@ def path_is_accessible(path):
 
 
 def get_arg_parser():
-    """ Build and return an argument parser with the command line options for yoink; this is
-        out here and not in a class because Sphinx needs it to build the docs.
+    """ Build and return an argument parser with the command line options
+        for yoink; this is out here and not in a class because Sphinx needs it
+        to build the docs.
 
     :return: an argparse 'parser' with command line options for yoink.
     """
     cwd = pathlib.Path().absolute()
     parser = argparse.ArgumentParser(description=_PROLOGUE, epilog=_EPILOGUE,
-                                     formatter_class=argparse.RawTextHelpFormatter)
-    # Can't find a way of clearing the action groups without hitting an internal attribute.
+                                     formatter_class=
+                                     argparse.RawTextHelpFormatter)
+    # Can't find a way of clearing the action groups
+    # without hitting an internal attribute.
     parser._action_groups.pop()
     exclusive_group = parser.add_mutually_exclusive_group(required=True)
     exclusive_group.add_argument('--product-locator', action='store',
@@ -77,19 +84,20 @@ def get_arg_parser():
                                 help='dry run, do not fetch product')
     optional_group.add_argument('--output-dir', action='store',
                                 dest='output_dir', default=cwd,
-                                help='output directory, default current directory')
-    optional_group.add_argument('--sdm-only', action='store_true', dest='sdm_only',
+                                help='output directory, default current dir')
+    optional_group.add_argument('--sdm-only', action='store_true',
+                                dest='sdm_only',
                                 help='only get the metadata, not the fringes')
     optional_group.add_argument('--verbose', action='store_true',
                                 required=False, dest='verbose', default=False,
                                 help='make a lot of noise')
     optional_group.add_argument('--force', action='store_true',
                                 required=False, dest='force', default=False,
-                                help='overwrite existing file(s) at destination')
+                                help='overwrite existing file(s) at dest')
     if 'CAPO_PROFILE' in os.environ:
         optional_group.add_argument('--profile', action='store', dest='profile',
                                     help='CAPO profile to use, default \''
-                                         + os.environ['CAPO_PROFILE'] + '\'',
+                                    + os.environ['CAPO_PROFILE'] + '\'',
                                     default=os.environ['CAPO_PROFILE'])
     else:
         optional_group.add_argument('--profile', action='store', dest='profile',
@@ -98,8 +106,9 @@ def get_arg_parser():
 
 
 def get_capo_settings(profile):
-    """ Get the required CAPO settings for yoink for the provided profile (prod, test).
-    Spits out an error message and exits (1) if it can't find one of them.
+    """ Get the required CAPO settings for yoink for the provided profile
+    (prod, test). Spits out an error message and exits (1) if it can't find
+    one of them.
 
     :param profile: the profile to use
     :return: a bunch of settings
@@ -107,18 +116,17 @@ def get_capo_settings(profile):
     result = dict()
     if profile is None:
         raise NoProfileException('CAPO_PROFILE required, none provided')
-    c = CapoConfig(profile=profile)
+    capo = CapoConfig(profile=profile)
     for setting in REQUIRED_SETTINGS:
         value = None
         setting = setting.upper()
         _LOG.debug('looking for setting {}'.format(setting))
         try:
-            value = c[setting]
+            value = capo[setting]
         except KeyError:
             raise MissingSettingsException('missing required setting "{}"'
                                            .format(setting))
         result[REQUIRED_SETTINGS[setting]] = value
-        _LOG.debug('required setting {} is {}'.format(REQUIRED_SETTINGS[setting], value))
     _LOG.debug('CAPO settings: {}'.format(str(result)))
     return result
 
@@ -130,16 +138,17 @@ def get_metadata_db_settings(profile):
     result = dict()
     if profile is None:
         raise NoProfileException('CAPO_PROFILE required, none provided')
-    c = CapoConfig(profile=profile)
+    config = CapoConfig(profile=profile)
     fields = ['jdbcDriver', 'jdbcUrl', 'jdbcUsername', 'jdbcPassword']
     qualified_fields = ['metadataDatabase.' + field for field in fields]
     for field in qualified_fields:
         _LOG.debug(f'looking for {field}....')
         try:
-            value = c[field]
+            value = config[field]
             result[field] = value
         except KeyError:
-            raise MissingSettingsException(f'missing required setting "{field}"')
+            raise MissingSettingsException(
+                f'missing required setting "{field}"')
     return result
 
 
@@ -150,12 +159,12 @@ class LocationsReport:
     class handles fetching the report from the service or reading it from
     a file, and has utilities to manipulate the report. """
 
-    # TODO: it would be wide to build some validation into the class
+    # TODO: it would be wise to build some validation into the class
     #   so if we get passed an improper file (either by service or by
     #   path) we complain loudly and fall over.
 
     def __init__(self, args, settings):
-        self.log = logging.getLogger(self.__class__.__name__)
+        self._LOG = logging.getLogger(self.__class__.__name__)
         self.settings = settings
         self.product_locator = args.product_locator
         self.location_file = args.location_file
@@ -171,13 +180,13 @@ class LocationsReport:
         the NGAS cluster supports direct copy. """
         dsoc_cluster = Cluster.DSOC
         exec_site = self.settings['execution_site']
-        for f in files_report['files']:
-            location = f['server']['location']
-            if f['server']['cluster'] == dsoc_cluster.value \
+        for file_spec in files_report['files']:
+            location = file_spec['server']['location']
+            if file_spec['server']['cluster'] == dsoc_cluster.value \
                     and (location == exec_site or location == str(exec_site)):
-                f['server']['retrieve_method'] = RetrievalMode.COPY
+                file_spec['server']['retrieve_method'] = RetrievalMode.COPY
             else:
-                f['server']['retrieve_method'] = RetrievalMode.STREAM
+                file_spec['server']['retrieve_method'] = RetrievalMode.STREAM
         return files_report
 
     def _filter_sdm_only(self, files_report):
@@ -186,11 +195,11 @@ class LocationsReport:
         is not a EVLA execution block things will go badly for them. """
         if self.sdm_only:
             result = list()
-            for f in files_report['files']:
-                relative_path = f['relative_path']
+            for file_spec in files_report['files']:
+                relative_path = file_spec['relative_path']
                 if relative_path.endswith('.bin') or \
                         relative_path.endswith('.xml'):
-                    result.append(f)
+                    result.append(file_spec)
             files_report['files'] = result
         return files_report
 
@@ -212,31 +221,35 @@ class LocationsReport:
         Re-organize it to group files under servers so it is more useful.
         """
         result = dict()
-        for f in self.files_report['files']:
-            new_f = copy.deepcopy(f)
+        for file_spec in self.files_report['files']:
+            new_f = copy.deepcopy(file_spec)
             del new_f['server']
-            server = f['server']
+            server = file_spec['server']
             server_host = server['server']
             if server_host not in result:
                 result[server_host] = dict()
                 result[server_host]['location'] = server['location']
                 result[server_host]['cluster'] = server['cluster']
-                result[server_host]['retrieve_method'] = server['retrieve_method']
+                result[server_host]['retrieve_method'] \
+                    = server['retrieve_method']
                 result[server_host]['files'] = list()
             result[server_host]['files'].append(new_f)
         return result
 
     def _get_files_report(self):
-        """ Given a product locator or a path to a location file, return a location report,
-        an object describing the files that make up the product and where to get them from.
-        If neither argument is provided, throw a ValueError, if both are (for some reason)
-        then the location file takes precedence.
+        """ Given a product locator or a path to a location file, return a
+        location report: an object describing the files that make up the product
+        and where to get them from.
+        If neither argument is provided, throw a ValueError; if both are
+        (for some reason), then the location file takes precedence.
 
         :return: location report (from file, in JSON)
         """
         result = dict()
         if self.product_locator is None and self.location_file is None:
-            raise ValueError('product_locator or location_file must be provided, neither were')
+            raise ValueError(
+                'product_locator or location_file must be provided; '
+                'neither were')
         if self.location_file is not None:
             result = self._get_location_report_from_file()
         if self.product_locator is not None:
@@ -245,7 +258,9 @@ class LocationsReport:
         return self._add_retrieve_method_field(result)
 
     def _get_location_report_from_file(self):
-        """ Read a file at a user provided path to pull in the location report. """
+        """ Read a file at a user provided path
+            to pull in the location report.
+        """
         try:
             with open(self.location_file) as f:
                 result = json.load(f)
@@ -255,8 +270,8 @@ class LocationsReport:
             # file, but it might not catch exceptions converting to JSON.
             #
             # TODO: look into that and add other clauses.
-            raise FileErrorException('can not read provided file {}'
-                                     .format(self.location_file))
+            raise FileErrorException(
+                f'cannot read provided file {self.location_file}: {ex}')
 
     def _get_location_report_from_service(self):
         """ Use 'requests' to fetch the location report from the locator service.
@@ -264,8 +279,8 @@ class LocationsReport:
         :return: location report (from locator service, in JSON)
         """
         response = None
-        self.log.debug('fetching report from {} for {}'.format(self.settings['locator_service_url'],
-                                                               self.product_locator))
+        self._LOG.debug('fetching report from {} for {}'.format(
+            self.settings['locator_service_url'],self.product_locator))
 
         try:
             response = requests.get(self.settings['locator_service_url'],
@@ -280,17 +295,18 @@ class LocationsReport:
         if response.status_code == 200:
             return response.json()
         elif response.status_code == 404:
-            raise NoLocatorException('can not find locator {}'.
+            raise NoLocatorException('cannot find locator {}'.
                                      format(self.product_locator))
         else:
             raise LocationServiceErrorException('locator service returned {}'
                                                 .format(response.status_code))
 
 class ProductLocatorLookup:
-    """ Look up the product locator for an external name (fileset ID)
 
     """
+    Look up the product locator for an external name (fileset ID)
 
+    """
     def __init__(self, capo_db_settings):
         self.capo_db_settings = capo_db_settings
         self.credentials = {}
@@ -298,20 +314,31 @@ class ProductLocatorLookup:
             self.credentials[key.replace('metadataDatabase.', '')] = value
 
     def look_up_locator_for_ext_name(self, external_name):
-        self.host, self.dbname = self.credentials['jdbcUrl'].split(':')[2][2:].split('/')
+        '''
+        Given a fileset ID or analogous identifier, find its product locator
 
-        with pg.connect(dbname=self.dbname,
-                        host=self.host,
+        :param external_name:
+        :return:
+        '''
+        host, dbname = self.credentials['jdbcUrl'].split(':')[2][2:].split('/')
+
+        with pg.connect(dbname=dbname,
+                        host=host,
                         user=self.credentials['jdbcUsername'],
                         password=self.credentials['jdbcPassword']) as conn:
             cursor = conn.cursor()
-            sql = 'SELECT science_product_locator FROM science_products WHERE external_name=%s'
+            sql = 'SELECT science_product_locator ' \
+                  'FROM science_products ' \
+                  'WHERE external_name=%s'
             cursor.execute(sql, (external_name,), )
             product_locator = cursor.fetchone()
         return product_locator[0]
 
 
 class Retryer:
+    """
+    Retry executing a function, or die trying
+    """
 
     def __init__(self, func, max_tries, sleep_interval):
         self.func = func
@@ -320,11 +347,19 @@ class Retryer:
         self.sleep_interval = sleep_interval
 
     def retry(self, args: List):
+        '''
+        Try something a specified number of times.
+        Die if it doesn't work after N tries.
+        :param args:
+        :return:
+        '''
+
         num_tries = 0
         while num_tries < self.max_tries and not self.complete:
 
             num_tries += 1
-            _LOG.info(f'trying {self.func.__name__} with argument(s) "{args}"....')
+            _LOG.info(f'trying {self.func.__name__} '
+                      f'with argument(s) "{args}"....')
 
             try:
                 success = self.func(args)
@@ -332,41 +367,54 @@ class Retryer:
                     self.complete = True
             except SystemExit as exc:
                 if num_tries < self.max_tries:
-                    _LOG.info(f'{exc}; trying again after {self.sleep_interval} seconds....')
+                    _LOG.info('{}; trying again after {} seconds....'
+                              .format(exc, self.sleep_interval))
                     time.sleep(self.sleep_interval)
                     return num_tries
                 else:
-                    _LOG.error(f'FAILURE after {num_tries} attempts')
+                    _LOG.error('FAILURE after {} attempts'.format(num_tries))
                     raise exc
 
         return num_tries
 
 
 class Location(Enum):
+    """
+    Where the files live
+    """
     DSOC  = 'DSOC'
     NAASC = 'NAASC'
 
     def __str__(self):
-        return self.value
+        return str(self.value)
 
 
 class Cluster(Enum):
+    """
+    Which cluster the files are on
+    """
     DSOC  = 'DSOC'
     NAASC = 'NAASC'
 
     def __str__(self):
-        return self.value
+        return str(self.value)
 
 
 class ExecutionSite(Enum):
+    """
+    Where this code is executing
+    """
     DSOC  = 'DSOC'
     NAASC = 'NAASC'
 
     def __str__(self):
-        return self.value
+        return str(self.value)
 
 
 class RetrievalMode(Enum):
+    """
+        How we're retrieving a file: via streaming or via
+        direct copy (plugin)
+    """
     STREAM = 'stream'
     COPY   = 'copy'
-

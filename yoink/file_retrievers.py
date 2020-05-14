@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Implementations of assorted file retrievers.
-
+"""
+Implementations of assorted file retrievers.
+"""
 import logging
 import os
 from pathlib import Path
@@ -9,7 +10,8 @@ from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 
-from yoink.errors import SizeMismatchException, NGASServiceErrorException, FileErrorException, Errors, \
+from yoink.errors import SizeMismatchException, NGASServiceErrorException, \
+    FileErrorException, Errors, \
     terminal_exception, MissingSettingsException
 from yoink.utilities import RetrievalMode
 
@@ -17,14 +19,18 @@ _DIRECT_COPY_PLUGIN = 'ngamsDirectCopyDppi'
 
 
 class NGASFileRetriever:
-    """ Responsible for getting a file out of NGAS and saving it to
-    the requested location. """
+    """ Responsible for getting a file out of NGAS
+        and saving it to the requested location.
+    """
 
     def __init__(self, args):
+        logging.basicConfig(level=logging.DEBUG) if args.verbose \
+            else logging.basicConfig(level=logging.WARN)
         self._LOG = logging.getLogger(self.__class__.__name__)
         self.output_dir = args.output_dir
         self.dry_run = args.dry_run
         self.force_overwrite = args.force
+        self.fetch_attempted = False
 
     def retrieve(self, server, retrieve_method, file_spec):
         """ Retrieve a file described in the file_spec from a given
@@ -44,7 +50,7 @@ class NGASFileRetriever:
 
         try:
             self._make_basedir(destination)
-        except Exception as exc:
+        except FileErrorException as exc:
             terminal_exception(exc)
 
 
@@ -69,7 +75,7 @@ class NGASFileRetriever:
             if file_spec['subdirectory'] is None:
                 return os.path.join(self.output_dir, file_spec['relative_path'])
             return os.path.join(self.output_dir, file_spec['subdirectory'],
-                            file_spec['relative_path'])
+                                file_spec['relative_path'])
         except KeyError as k_err:
             exc = MissingSettingsException(k_err)
             terminal_exception(exc)
@@ -86,13 +92,15 @@ class NGASFileRetriever:
             basedir = os.path.dirname(destination)
             if os.path.isdir(basedir):
                 if not os.access(basedir, os.W_OK):
-                    terminal_exception(FileErrorException(f'output directory {basedir} is not writable'), )
+                    terminal_exception(FileErrorException(
+                        f'output directory {basedir} is not writable'), )
             try:
                 umask = os.umask(0o000)
                 Path(basedir).mkdir(parents=True, exist_ok=True)
                 os.umask(umask)
             except OSError:
-                raise FileErrorException(f'failure trying to create output directory {basedir}')
+                raise FileErrorException(
+                    f'failure trying to create output directory {basedir}')
 
     def _check_result(self, destination, file_spec):
         """ Confirm that the file was retrieved and its size matches what
@@ -104,11 +112,13 @@ class NGASFileRetriever:
         self._LOG.debug(f'verifying fetch of {destination}')
         if not self.dry_run:
             if not os.path.exists(destination):
-                terminal_exception(NGASServiceErrorException(f'file not delivered to {destination}'))
+                terminal_exception(NGASServiceErrorException(
+                    f'file not delivered to {destination}'))
             if file_spec['size'] != os.path.getsize(destination):
                 terminal_exception(SizeMismatchException(
                     f"file retrieval size mismatch on {destination}: "
-                    f"expected {file_spec['size']}, got {os.path.getsize(destination)}"))
+                    f"expected {file_spec['size']}, "
+                    f"got {os.path.getsize(destination)}"))
             self._LOG.debug('\tlooks good; sizes match')
 
     def _copying_fetch(self, download_url, destination, file_spec):
@@ -126,20 +136,22 @@ class NGASFileRetriever:
         self._LOG.debug('attempting copying download:\nurl: {}\ndestination: {}'
                         .format(download_url, destination))
         if not self.dry_run:
-            with requests.Session() as s:
-                r = s.get(download_url, params=params)
+            with requests.Session() as session:
+                response = session.get(download_url, params=params)
 
-                if r.status_code != requests.codes.ok:
-                    self._LOG.error(f'NGAS does not like this request:\n{r.url}')
-                    soup = BeautifulSoup(r.text, 'lxml-xml')
+                if response.status_code != requests.codes.ok:
+                    self._LOG.error(
+                        'NGAS does not like this request:\n{}'
+                        .format(response.url))
+                    soup = BeautifulSoup(response.text, 'lxml-xml')
                     ngams_status = soup.NgamsStatus.Status
                     message = ngams_status.get("Message")
 
                     raise NGASServiceErrorException(
-                        {'status_code': r.status_code, 'url': r.url, 'reason': r.reason, 'message': message})
-
-                else:
-                    self._LOG.info(f'retrieved {destination} from {r.url}')
+                        {'status_code': response.status_code,
+                         'url': response.url,
+                         'reason': response.reason,
+                         'message': message})
 
     def _streaming_fetch(self, download_url, destination, file_spec):
         """ Pull a file out of NGAS via streaming.
@@ -152,28 +164,37 @@ class NGASFileRetriever:
         params = {'file_id': file_spec['ngas_file_id'],
                   'file_version': file_spec['version']}
 
-        self._LOG.debug(f'attempting streaming download:\nurl: {download_url}\ndestination: {destination}')
+        self._LOG.debug(
+            'attempting streaming download:\nurl: {}\ndestination: {}'
+            .format(download_url, destination))
         self.fetch_attempted = True
         if not self.dry_run:
-            with requests.Session() as s:
+            with requests.Session() as session:
                 try:
-                    r = s.get(download_url, params=params, stream=True)
-                    chunk_size = 8192
-                    with open(destination, 'wb') as f:
-                        for chunk in r.iter_content(chunk_size=chunk_size):
-                            f.write(chunk)
+                    response = session.get(
+                        download_url, params=params, stream=True)
+                    chunk_size = 8192 # TODO constant
+                    with open(destination, 'wb') as file_to_write:
+                        for chunk in response.iter_content(
+                                chunk_size=chunk_size):
+                            file_to_write.write(chunk)
                 except requests.exceptions.ConnectionError:
-                    terminal_exception(NGASServiceErrorException(f'problem connecting with {download_url}'))
+                    terminal_exception(NGASServiceErrorException(
+                        f'problem connecting with {download_url}'))
 
-                if r.status_code != requests.codes.ok:
-                    self._LOG.error(f'NGAS does not like this request:\n{r.url}')
-                    soup = BeautifulSoup(r.text, 'lxml-xml')
+                if response.status_code != requests.codes.ok:
+                    self._LOG.error('NGAS does not like this request:\n{}'
+                                    .format(response.url))
+                    soup = BeautifulSoup(response.text, 'lxml-xml')
                     ngams_status = soup.NgamsStatus.Status
                     message = ngams_status.get("Message")
 
                     n_exc = NGASServiceErrorException(
-                        {'status_code': r.status_code, 'url': r.url, 'reason': r.reason, 'message': message})
+                        {'status_code': response.status_code,
+                         'url': response.url,
+                         'reason': response.reason,
+                         'message': message})
                     SystemExit(n_exc, Errors.NGAS_SERVICE_ERROR)
                 else:
-                    self._LOG.info(f'retrieved {destination} from {r.url}')
-
+                    self._LOG.info('retrieved {} from {}'.
+                                   format(destination, response.url))
