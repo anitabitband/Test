@@ -5,7 +5,6 @@ from enum import Enum
 
 _LOG = logging.getLogger(__name__)
 
-# TODO: every one of these must be tested
 class Errors(Enum):
     """
     Assorted constants and functions involving errors

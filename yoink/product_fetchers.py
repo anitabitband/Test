@@ -4,6 +4,7 @@
 
 import copy
 import logging
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from yoink.errors import NGASServiceErrorException
@@ -25,6 +26,7 @@ class BaseProductFetcher:
         self.settings = settings
         self.ngas_retriever = NGASFileRetriever(args)
         self.retrieved = []
+        self.num_files_retrieved = 0
 
     def retrieve_files(self, server, retrieve_method, file_specs):
         ''' this is the part where we actually fetch the files
@@ -33,24 +35,25 @@ class BaseProductFetcher:
         num_files = len(file_specs)
         count = 0
 
-        try:
-            for file_spec in file_specs:
-                count += 1
-                self._LOG.info(f">>> retrieving {file_spec['relative_path']} "
-                               f"({file_spec['size']} bytes, "
-                               f"no. {count} of {num_files})....")
-                self.retrieved.append(
-                    retriever.retrieve(server, retrieve_method, file_spec))
-            return num_files
-        except NGASServiceErrorException as n_exc:
-            raise n_exc
+        # try:
+        for file_spec in file_specs:
+            count += 1
+
+            self._LOG.info(f">>> retrieving {file_spec['relative_path']} "
+                           f"({file_spec['size']} bytes, "
+                           f"no. {count} of {num_files})....")
+            self.retrieved.append(
+                retriever.retrieve(server, retrieve_method, file_spec))
+
+        return num_files
 
 
 class SerialProductFetcher(BaseProductFetcher):
     """ Pull the files out, one right after another;
     don't try to be clever about it.
     """
-    # TODO: add yoink_tests for this
+    # TODO some fine day: add yoink_tests for this IFF it will be used in
+    #  production
 
     def __init__(self, args, settings, servers_report):
         super().__init__(args, settings, servers_report)
@@ -115,32 +118,45 @@ class ParallelProductFetcher(BaseProductFetcher):
     def fetch_bucket(self, bucket):
         ''' Grab the files in this bucket
         '''
-        try:
-            self.retrieve_files(bucket['server'],
-                                bucket['retrieve_method'],
-                                bucket['files'])
-        except NGASServiceErrorException as exc:
-            raise exc
+        self._LOG.info(f"{bucket['retrieve_method']} "
+                       f"{len(bucket['files'])} files from "
+                       f"{bucket['server']}....")
+        self.retrieve_files(bucket['server'],
+                            bucket['retrieve_method'],
+                            bucket['files'])
 
     def run(self):
         ''' Fetch all the files
         '''
         with ThreadPoolExecutor() as executor:
             results = executor.map(self.fetch_bucket, self.bucketized_files)
-            num_files_retrieved = 0
             try:
                 for future in as_completed(results):
-                    num_files_retrieved += future.result()
-                    if num_files_retrieved != self.num_files_expected:
-                        # TODO: throw exception
+                    self.num_files_retrieved += future.result()
+                    if self.num_files_retrieved != self.num_files_expected:
                         self._LOG.error(
                             f'{self.num_files_expected} files expected, '
-                            f'but only {num_files_retrieved} retrieved')
-                        return num_files_retrieved
+                            f'but only {self.num_files_retrieved} retrieved')
+                        raise NGASServiceErrorException
                 return self.retrieved
             except NGASServiceErrorException as n_exc:
                 raise n_exc
             except AttributeError as a_err:
-                # TODO: is this really spurious, thrown only when there are no more files to retrieve?
-                self._LOG.error(f'>>> {a_err}')
+                # This error may -- but doesn't always -- occur after all files
+                # actually -have- been retrieved. TODO some fine day: why?
+                for dirname, dirnames, fnames in os.walk(
+                        self.args.output_dir):
+                    if dirnames:
+                        # we can expect one subdir: the external_name associated
+                        # with the product locator
+                        subdir = dirnames[0]
+                        to_walk = os.path.join(dirname, subdir)
+                        for dname, dnames, files in os.walk(to_walk):
+                            if self.num_files_expected == len(files):
+                                self.num_files_retrieved += len(files)
+                                break
+                        if self.num_files_expected == self.num_files_retrieved:
+                            break
+                if self.num_files_retrieved < self.num_files_expected:
+                    raise NGASServiceErrorException(a_err)
                 return self.retrieved

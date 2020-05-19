@@ -13,7 +13,6 @@ import os
 import pathlib
 import time
 from enum import Enum
-from typing import List
 
 import psycopg2 as pg
 import requests
@@ -22,11 +21,15 @@ from pycapo import CapoConfig
 from yoink.errors import get_error_descriptions, NoProfileException, \
     MissingSettingsException, FileErrorException, \
     LocationServiceErrorException, LocationServiceRedirectsException, \
-    LocationServiceTimeoutException, NoLocatorException
+    LocationServiceTimeoutException, NoLocatorException, \
+    NGASServiceErrorException, SizeMismatchException
 
 LOG_FORMAT = "%(name)s.%(module)s.%(funcName)s, %(lineno)d: %(message)s"
 logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
 _LOG = logging.getLogger(__name__)
+
+MAX_TRIES = 10
+SLEEP_INTERVAL_SECONDS = 2
 
 # Prologue and epilogue for the command line parser.
 _PROLOGUE = \
@@ -56,7 +59,7 @@ def path_is_accessible(path):
     can_access = can_access and os.access(path, os.X_OK)
     return can_access
 
-
+# TODO: make parser a class; write unit tests
 def get_arg_parser():
     """ Build and return an argument parser with the command line options
         for yoink; this is out here and not in a class because Sphinx needs it
@@ -165,6 +168,7 @@ class LocationsReport:
 
     def __init__(self, args, settings):
         self._LOG = logging.getLogger(self.__class__.__name__)
+
         self.settings = settings
         self.product_locator = args.product_locator
         self.location_file = args.location_file
@@ -262,14 +266,14 @@ class LocationsReport:
             to pull in the location report.
         """
         try:
-            with open(self.location_file) as f:
-                result = json.load(f)
+            with open(self.location_file) as to_read:
+                result = json.load(to_read)
                 return result
         except EnvironmentError as ex:
             # This broadly catches any exception with opening and reading the
             # file, but it might not catch exceptions converting to JSON.
             #
-            # TODO: look into that and add other clauses.
+            # TODO: look into that and add other causes; write tests for this class.
             raise FileErrorException(
                 f'cannot read provided file {self.location_file}: {ex}')
 
@@ -280,7 +284,7 @@ class LocationsReport:
         """
         response = None
         self._LOG.debug('fetching report from {} for {}'.format(
-            self.settings['locator_service_url'],self.product_locator))
+            self.settings['locator_service_url'], self.product_locator))
 
         try:
             response = requests.get(self.settings['locator_service_url'],
@@ -342,11 +346,12 @@ class Retryer:
 
     def __init__(self, func, max_tries, sleep_interval):
         self.func = func
+        self.num_tries = 0
         self.max_tries = max_tries
-        self.complete = False
         self.sleep_interval = sleep_interval
+        self.complete = False
 
-    def retry(self, args: List):
+    def retry(self, *args):
         '''
         Try something a specified number of times.
         Die if it doesn't work after N tries.
@@ -354,28 +359,36 @@ class Retryer:
         :return:
         '''
 
-        num_tries = 0
-        while num_tries < self.max_tries and not self.complete:
+        while self.num_tries < self.max_tries and not self.complete:
 
-            num_tries += 1
-            _LOG.info(f'trying {self.func.__name__} '
-                      f'with argument(s) "{args}"....')
+            self.num_tries += 1
+            _LOG.info(f'trying {self.func.__name__}({args})....')
 
             try:
                 success = self.func(args)
                 if success:
                     self.complete = True
-            except SystemExit as exc:
-                if num_tries < self.max_tries:
+                else:
+                    if self.num_tries < self.max_tries:
+                        _LOG.info('iteration #{}: {}; trying again after {} '
+                                  'seconds....'
+                                  .format(self.num_tries, exc,
+                                          self.sleep_interval))
+                        time.sleep(self.sleep_interval)
+                    else:
+                        raise NGASServiceErrorException(
+                            'FAILURE after {} attempts'.format(
+                                self.num_tries))
+
+            except (NGASServiceErrorException, SizeMismatchException) as exc:
+                if self.num_tries < self.max_tries:
                     _LOG.info('{}; trying again after {} seconds....'
                               .format(exc, self.sleep_interval))
                     time.sleep(self.sleep_interval)
-                    return num_tries
                 else:
-                    _LOG.error('FAILURE after {} attempts'.format(num_tries))
+                    _LOG.error(
+                        'FAILURE after {} attempts'.format(self.num_tries))
                     raise exc
-
-        return num_tries
 
 
 class Location(Enum):
