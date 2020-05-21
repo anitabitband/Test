@@ -45,7 +45,7 @@ class NGASFileRetriever:
         destination = self._get_destination(file_spec)
 
         if os.path.exists(destination):
-            if not self.force_overwrite or self.dry_run:
+            if not self.force_overwrite and not self.dry_run:
                 raise FileExistsError(f'{destination} exists; aborting')
 
         try:

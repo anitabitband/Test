@@ -139,7 +139,7 @@ class ParallelProductFetcher(BaseProductFetcher):
                             f'but only {self.num_files_retrieved} retrieved')
                         raise NGASServiceErrorException
                 return self.retrieved
-            except NGASServiceErrorException as n_exc:
+            except (FileExistsError, NGASServiceErrorException) as n_exc:
                 raise n_exc
             except AttributeError as a_err:
                 # This error may -- but doesn't always -- occur after all files

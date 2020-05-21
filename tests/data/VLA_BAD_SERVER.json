@@ -1,0 +1,18 @@
+{
+  "files": [
+    {
+      "ngas_file_id": "uid____evla_bdf_1587067245117.bdf",
+      "subdirectory": "sysstartS.58955.83384832176",
+      "relative_path": "ASDMBinary/uid____evla_bdf_1587067245117",
+      "checksum": "-582543640",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 64269088,
+      "server": {
+        "server": "nmngas_BOGUS.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    }
+  ]
+}
