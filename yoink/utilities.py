@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# This is a home for assorted utilities that didn't seem to belong elsewhere,
-# stuff like the CAPO settings retriever, command line parser generator and
-# so on.
-
+"""This is a home for assorted utilities that didn't seem to belong elsewhere,
+    stuff like the CAPO settings retriever, command line parser generator and
+    so on.
+"""
 
 import argparse
 import logging
@@ -18,11 +18,11 @@ from pycapo import CapoConfig
 from yoink.errors import get_error_descriptions, NoProfileException, \
     MissingSettingsException, NGASServiceErrorException, SizeMismatchException
 
-LOG_FORMAT = "%(name)s.%(module)s.%(funcName)s, %(lineno)d: %(message)s"
+LOG_FORMAT = "%(module)s.%(funcName)s, %(lineno)d: %(message)s"
 logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
 _LOG = logging.getLogger(__name__)
 
-MAX_TRIES = 2
+MAX_TRIES = 10
 SLEEP_INTERVAL_SECONDS = 1
 FILE_SPEC_KEYS = ['ngas_file_id', 'subdirectory', 'relative_path',
                   'checksum', 'checksum_type', 'version', 'size', 'server']
@@ -56,7 +56,7 @@ def path_is_accessible(path):
     can_access = can_access and os.access(path, os.X_OK)
     return can_access
 
-# TODO: parser can be a class; write unit tests
+# TODO: parser should be a class; write unit tests
 def get_arg_parser():
     """ Build and return an argument parser with the command line options
         for yoink; this is out here and not in a class because Sphinx needs it

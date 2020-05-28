@@ -11,9 +11,9 @@ import requests
 from bs4 import BeautifulSoup
 
 from yoink.errors import SizeMismatchException, NGASServiceErrorException, \
-    FileErrorException, terminal_exception, MissingSettingsException
+    FileErrorException, MissingSettingsException
 from yoink.utilities import RetrievalMode, Retryer, MAX_TRIES, \
-    SLEEP_INTERVAL_SECONDS
+    SLEEP_INTERVAL_SECONDS, LOG_FORMAT
 
 _DIRECT_COPY_PLUGIN = 'ngamsDirectCopyDppi'
 _STREAMING_CHUNK_SIZE = 8192
@@ -23,15 +23,27 @@ class NGASFileRetriever:
         and saving it to the requested location.
     """
 
-    def __init__(self, args):
-        logging.basicConfig(level=logging.DEBUG) if args.verbose \
-            else logging.basicConfig(level=logging.WARN)
-        self._LOG = logging.getLogger(self.__class__.__name__)
+    def __init__(self, logfile, args):
+        self.logfile = logfile
+        self.configure_logging(args.verbose)
         self.output_dir = args.output_dir
         self.dry_run = args.dry_run
         self.force_overwrite = args.force
         self.fetch_attempted = False
         self.num_tries = 0
+
+    # TODO: duplicate code; consolidate
+    def configure_logging(self, verbose):
+        ''' set up logging
+        '''
+        self._LOG = logging.getLogger(self.logfile)
+        self.handler = logging.FileHandler(self.logfile)
+        formatter = logging.Formatter(LOG_FORMAT)
+        self.handler.setFormatter(formatter)
+        self._LOG.addHandler(self.handler)
+
+        level = logging.DEBUG if verbose else logging.WARN
+        self._LOG.setLevel(level)
 
     def retrieve(self, server, retrieve_method, file_spec):
         """ Retrieve a file described in the file_spec from a given
@@ -40,6 +52,7 @@ class NGASFileRetriever:
         :param server: the URL of the server to retrieve from
         :param retrieve_method: 'copy' or 'stream', how to retrieve
         :param file_spec: location report for the file to retrieve
+        @:returns Path
         """
         download_url = 'http://' + server + '/RETRIEVE'
         destination = self._get_destination(file_spec)
@@ -48,10 +61,7 @@ class NGASFileRetriever:
             if not self.force_overwrite and not self.dry_run:
                 raise FileExistsError(f'{destination} exists; aborting')
 
-        try:
-            self._make_basedir(destination)
-        except FileErrorException as exc:
-            terminal_exception(exc)
+        self._make_basedir(destination)
 
 
         func = self._copying_fetch if retrieve_method == RetrievalMode.COPY \
@@ -62,6 +72,7 @@ class NGASFileRetriever:
         finally:
             self.num_tries = retryer.num_tries
 
+        self._check_result(destination, file_spec)
         return destination
 
     def _get_destination(self, file_spec):
@@ -79,12 +90,10 @@ class NGASFileRetriever:
             return os.path.join(self.output_dir, file_spec['subdirectory'],
                                 file_spec['relative_path'])
         except KeyError as k_err:
-            exc = MissingSettingsException(k_err)
-            terminal_exception(exc)
+            raise MissingSettingsException(k_err)
 
         except TypeError as t_err:
-            exc = MissingSettingsException(t_err)
-            terminal_exception(exc)
+            raise MissingSettingsException(t_err)
 
     def _make_basedir(self, destination):
         """ Creates the directory (if it doesn't exist) the product will
@@ -97,8 +106,8 @@ class NGASFileRetriever:
             basedir = os.path.dirname(destination)
             if os.path.isdir(basedir):
                 if not os.access(basedir, os.W_OK):
-                    terminal_exception(FileErrorException(
-                        f'output directory {basedir} is not writable'), )
+                    raise FileErrorException(
+                        f'output directory {basedir} is not writable')
             try:
                 umask = os.umask(0o000)
                 Path(basedir).mkdir(parents=True, exist_ok=True)
@@ -114,17 +123,20 @@ class NGASFileRetriever:
         :param destination: the path to the file to check
         :param file_spec: the file specification of that file
         """
-        self._LOG.debug(f'verifying fetch of {destination}')
         if not self.dry_run:
+            self._LOG.debug(f'verifying fetch of {destination}')
             if not os.path.exists(destination):
-                terminal_exception(NGASServiceErrorException(
-                    f'file not delivered to {destination}'))
+                raise NGASServiceErrorException(
+                    f'file not delivered to {destination}')
             if file_spec['size'] != os.path.getsize(destination):
-                terminal_exception(SizeMismatchException(
+                raise SizeMismatchException(
                     f"file retrieval size mismatch on {destination}: "
                     f"expected {file_spec['size']}, "
-                    f"got {os.path.getsize(destination)}"))
+                    f"got {os.path.getsize(destination)}")
             self._LOG.debug('\tlooks good; sizes match')
+        else:
+            self._LOG.debug(
+                '(This was a dry run; no files should have been fetched)')
 
     def _copying_fetch(self, args):
         """ Pull a file out of NGAS via the direct copy plugin.
@@ -159,6 +171,11 @@ class NGASFileRetriever:
                          'url': response.url,
                          'reason': response.reason,
                          'message': message})
+
+        else:
+            self._LOG.debug(
+                f'if this were not a dry run, we would have been copying '
+                f'{file_spec["relative_path"]}')
 
         return True
 
@@ -225,5 +242,10 @@ class NGASFileRetriever:
 
                 self._LOG.info('retrieved {} from {}'.
                                format(destination, response.url))
+
+        else:
+            self._LOG.debug(
+                f'if this were not a dry run, we would have been streaming '
+                f'{file_spec["relative_path"]}')
 
         return True

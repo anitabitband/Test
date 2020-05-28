@@ -1,3 +1,4 @@
+""" Unit tests for yoink as a whole """
 import logging
 import os
 import re
@@ -5,21 +6,20 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from typing import List
 from unittest.mock import MagicMock
 
 import pytest
 
 from tests.testing_utils import get_locations_report, LOCATION_REPORTS, \
-    get_mini_locations_file, write_locations_file, DATA_DIR, get_locations_file
+    get_mini_locations_file, write_locations_file, DATA_DIR, get_locations_file, \
+    find_yoink_log_file
 from yoink.commands import Yoink
 from yoink.errors import Errors
 from yoink.locations_report import LocationsReport
 from yoink.utilities import get_capo_settings, get_arg_parser, \
-    ProductLocatorLookup, get_metadata_db_settings, ExecutionSite, RetrievalMode
-
-LOG_FORMAT = "%(name)s.%(module)s.%(funcName)s, %(lineno)d: %(message)s"
-logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
-_LOG = logging.getLogger(__name__)
+    ProductLocatorLookup, get_metadata_db_settings, ExecutionSite, \
+    RetrievalMode, LOG_FORMAT
 
 VLA_SMALL_KEY = 'VLA_SMALL_EB'
 
@@ -70,11 +70,18 @@ class YoinkTestCase(unittest.TestCase):
         args = [command,
                 '--product-locator', 'not even',
                 '--profile', 'local', '--output-dir', self.top_level]
-
-        output = Yoinker().run(args)
+        yoinker = Yoinker(args)
+        yoinker.run()
         exception_found = False
         terminal_exception_thrown = False
-        for line in output:
+
+        logfile = find_yoink_log_file(self.top_level)
+        self.assertNotEqual(0, os.path.getsize(logfile),
+                            f'expecting a non-empty log file in {self.top_level}')
+        with open(logfile, 'r') as log:
+            log_contents = log.readlines()
+
+        for line in log_contents:
             if 'NoLocatorException' in line:
                 exception_found = True
             if 'terminal_exception' in line:
@@ -84,11 +91,19 @@ class YoinkTestCase(unittest.TestCase):
         self.assertTrue(exception_found, 'expecting NoLocatorException')
         self.assertTrue(terminal_exception_thrown, 'terminal_exception should be thrown')
 
-        args = [command, '--location-file', 'aint_got_one']
-        output = Yoinker().run(args)
+        os.rename(logfile, str(logfile).replace('Yoink_', 'bad_locator__'))
+        args = [command, '--location-file', 'aint_got_one', '--output-dir',
+                self.top_level]
+
+        yoinker = Yoinker(args)
+        yoinker.run()
+        logfile = find_yoink_log_file(self.top_level)
+        with open(logfile, 'r') as log:
+            log_contents = log.readlines()
+
         exception_found = False
         terminal_exception_thrown = False
-        for line in output:
+        for line in log_contents:
             if 'FileNotFoundError' in line:
                 exception_found = True
             if 'terminal_exception' in line:
@@ -96,24 +111,6 @@ class YoinkTestCase(unittest.TestCase):
             if exception_found and terminal_exception_thrown:
                 break
         self.assertTrue(exception_found, 'expecting FileNotFoundError')
-        self.assertTrue(terminal_exception_thrown, 'terminal_exception should be thrown')
-
-        args = [command,
-                '--location-file',
-                get_mini_locations_file(os.path.join(self.top_level,
-                                                     'locations.json')),
-                '--profile', 'local', '--output-dir', '/']
-        output = Yoinker().run(args)
-        exception_found = False
-        terminal_exception_thrown = False
-        for line in output:
-            if 'PermissionError' in line:
-                exception_found = True
-            if 'terminal_exception' in line:
-                terminal_exception_thrown = True
-            if exception_found and terminal_exception_thrown:
-                break
-        self.assertTrue(exception_found, 'expecting PermissionError')
         self.assertTrue(terminal_exception_thrown, 'terminal_exception should be thrown')
 
     def test_nothing_retrieved_if_dry_on_cmd_line(self):
@@ -124,23 +121,19 @@ class YoinkTestCase(unittest.TestCase):
                 '--location-file', location_file,
                 '--profile', 'local', '--output-dir', self.top_level,
                 '--dry', '--verbose']
-        output = Yoinker().run(args)
-        filenames_found = []
-        for line in output:
-            found = re.match(
-                r'.*/RETRIEVE\?file_id=(.+\.(xml|bin|sdm)).*', line)
-            if found:
-                filenames_found.append(found.groups()[0])
+        yoinker = Yoinker(args)
+        output = yoinker.run()
+        logfile = find_yoink_log_file(self.top_level)
+        self.assertEqual([], output, 'expecting no files for dry run')
+        self.assertNotEqual(0, os.path.getsize(logfile),
+                            'log file should be non-empty because verbose')
 
-        filenames_found = set(filenames_found)
-        self.assertEqual(0, len(filenames_found), 'expecting no files')
-
-        # make sure none of these files was actually written
+        # make sure none of these files written
         os.remove(location_file)
         file_count = 0
         for anything in os.walk(location_file):
             file_count += 1
-        self.assertEqual(0, file_count, 'expecting no files')
+        self.assertEqual(0, file_count, 'no files should have been retrieved')
 
     def test_force_overwrite_from_cmd_line(self):
         command = 'yoink'
@@ -148,15 +141,18 @@ class YoinkTestCase(unittest.TestCase):
                                                              'locations.json'))
         dest_dir = os.path.join(self.top_level, 'sysstartS.58955.83384832176')
         Path(dest_dir).mkdir(parents=True, exist_ok=True)
+
         # make a fake file to be overwritten
         fake_file = os.path.join(dest_dir, 'ASDM.xml')
         with open(fake_file, 'w') as to_write:
             to_write.write('alas, my days are numbered')
         args = [command,
                 '--location-file', location_file,
-                '--profile', 'local', '--output-dir', self.top_level,
+                '--profile', 'local',
+                '--output-dir', self.top_level,
                 '--force']
-        Yoinker().run(args)
+        Yoinker(args).run()
+
         sizes = dict()
         for dirname, dirnames, fnames in os.walk(dest_dir):
             for fname in fnames:
@@ -182,11 +178,15 @@ class YoinkTestCase(unittest.TestCase):
         args = [command,
                 '--location-file', location_file,
                 '--profile', 'local', '--output-dir', self.top_level]
-        output = Yoinker().run(args)
+        yoinker = Yoinker(args)
+        yoinker.run()
 
         term_except_found = False
         file_exists_found = False
-        for line in output:
+        logfile = find_yoink_log_file(self.top_level)
+        with open(logfile, 'r') as log:
+            log_contents = log.readlines()
+        for line in log_contents:
             if 'terminal_exception' in line:
                 term_except_found = True
             if 'FileExistsError' in line:
@@ -197,24 +197,40 @@ class YoinkTestCase(unittest.TestCase):
         self.assertTrue(term_except_found and file_exists_found,
                         'expecting terminal_exception for FileExistsError')
 
-    def test_cmd_line_verbose_sdm_output_from_file(self):
+    def test_cmd_line_more_output_when_verbose(self):
         command = 'yoink'
         args = [command,
                 '--location-file',
-                get_mini_locations_file(os.path.join(self.top_level,
-                                                     'locations.json')),
+                get_mini_locations_file(
+                    os.path.join(self.top_level, 'locations_verbose.json')),
                 '--profile', 'local', '--output-dir', self.top_level,
-                '--sdm-only', '--verbose']
-        output = Yoinker().run(args)
-        filenames_found = []
-        for line in output:
-            found = re.match(
-                r'.*/RETRIEVE\?file_id=(.+\.(xml|bin|sdm)).*', line)
-            if found:
-                filenames_found.append(found.groups()[0])
+                '--verbose']
+        yoinker = Yoinker(args)
+        retrieved = yoinker.run()
+        num_files_expected = 37
+        self.assertEqual(num_files_expected, len(retrieved),
+                         f'expecting {num_files_expected} files')
 
-        filenames_found = set(filenames_found)
-        self.assertEqual(37, len(filenames_found), 'expecting 37 SDMs')
+        logfile = find_yoink_log_file(self.top_level)
+        self.assertNotEqual(0,  os.path.getsize(logfile),
+                            'log should contain debug messages')
+
+        removed = [os.remove(file) for file in retrieved]
+        logname = str(logfile).replace('Yoink_', 'yoink_verbose')
+        os.rename(logfile, logname)
+
+        # same thing, but without verbose
+        args = [command,
+                '--location-file',
+                get_mini_locations_file(
+                    os.path.join(self.top_level, 'locations.json')),
+                '--profile', 'local', '--output-dir', self.top_level]
+        yoinker = Yoinker(args)
+        retrieved = yoinker.run()
+        self.assertEqual(num_files_expected, len(retrieved),
+                         f'expecting {num_files_expected} files')
+        logfile = find_yoink_log_file(self.top_level)
+        self.assertEqual(0,  os.path.getsize(logfile), 'log should be empty')
 
     def test_can_stream_from_mini_locations_file(self):
         """ gin up a location report with just a few small files in it
@@ -231,6 +247,36 @@ class YoinkTestCase(unittest.TestCase):
         print(
             f'{file_count} files should have been delivered to {self.top_level}')
         self.assertEqual(37, file_count)
+
+    def test_verbose_writes_stuff_to_log(self):
+        path = os.path.join(self.top_level, 'locations.json')
+        report_file = get_mini_locations_file(path)
+        args = ['--location-file', report_file, '--output-dir', self.top_level,
+                '--sdm-only', '--profile', self.profile, '--verbose']
+        namespace = get_arg_parser().parse_args(args)
+        yoink = Yoink(namespace, self.settings)
+        yoink.run()
+
+        logfile = yoink.logfile
+        self.assertTrue(os.path.isfile(logfile),
+                        f'expecting log file {logfile}')
+        self.assertNotEqual(0, os.path.getsize(logfile),
+                            'there should be entries in the log file')
+
+    def test_empty_log_if_not_verbose(self):
+        path = os.path.join(self.top_level, 'locations.json')
+        report_file = get_mini_locations_file(path)
+        args = ['--location-file', report_file, '--output-dir', self.top_level,
+                '--sdm-only', '--profile', self.profile]
+        namespace = get_arg_parser().parse_args(args)
+        yoink = Yoink(namespace, self.settings)
+        yoink.run()
+
+        logfile = yoink.logfile
+        self.assertTrue(os.path.isfile(logfile),
+                        f'expecting log file {logfile}')
+        self.assertEqual(0, os.path.getsize(logfile),
+                            'log file should be empty')
 
     def test_copy_attempt_throws_sys_exit_service_error(self):
         test_data_13B_014 = self.test_data['13B-014']
@@ -395,16 +441,16 @@ class YoinkTestCase(unittest.TestCase):
 
     def test_sys_exit_file_error_on_bad_destination(self):
         test_data_13B_014 = self.test_data['13B-014']
-        bad_path = '/foo'
+        bad_path = os.path.abspath('/foo')
         args = ['--product-locator', test_data_13B_014['product_locator'],
                 '--output-dir', bad_path,
                 '--sdm-only', '--profile', self.profile]
         namespace = get_arg_parser().parse_args(args)
-        yoink = Yoink(namespace, self.settings)
+        # yoink = Yoink(namespace, self.settings)
         with pytest.raises(SystemExit) as s_ex:
-            yoink.run()
-        self.assertEqual(Errors.FILE_ERROR.value, s_ex.value.code,
-                         'should throw FILE_ERROR')
+            Yoink(namespace, self.settings)
+        self.assertEqual(Errors.FILE_NOT_FOUND_ERROR.value, s_ex.value.code,
+                         'should throw FILE_NOT_FOUND_ERROR')
 
     def test_sys_exit_no_locator_for_bad_product_locator(self):
         args = ['--product-locator', 'foo',
@@ -491,8 +537,59 @@ class YoinkTestCase(unittest.TestCase):
                                                           f'{num_expected} '
                                                           f'image files')
 
-    def test_retrieval_finds_size_mismatch(self):
+    def test_gets_calibration_from_report_file(self):
+        report_file = get_locations_file('CALIBRATION')
+        args = ['--location-file', report_file,
+                '--output-dir', self.top_level, '--profile', self.profile]
+        namespace = get_arg_parser().parse_args(args)
+        yoink = Yoink(namespace, self.settings)
+        report_files = yoink.locations_report.files_report['files']
+        self.assertEqual(1, len(report_files),
+                         f'{os.path.basename(report_file)} should have 1 file')
+        file_spec = report_files[0]
 
+        # calibration will have external name = relative path = subdirectory
+        relative_path = file_spec['relative_path']
+        self.assertEqual(relative_path, file_spec['subdirectory'],
+                         'expecting relative_path same as subdirectory')
+
+        expected_files = [os.path.join(self.top_level, relative_path)]
+        yoink.run = MagicMock(return_value=expected_files)
+        actual_files = yoink.run()
+        num_expected = len(expected_files)
+        self.assertEqual(num_expected, len(actual_files), f'expecting '
+                                                          f'{num_expected} '
+                                                          f'calibration')
+
+    def test_gets_calibration_from_locator(self):
+        external_name = LOCATION_REPORTS['CALIBRATION']['external_name']
+        product_locator = ProductLocatorLookup(
+            self.db_settings).look_up_locator_for_ext_name(external_name)
+        args = ['--product-locator', product_locator,
+                '--output-dir', self.top_level, '--profile', self.profile]
+        namespace = get_arg_parser().parse_args(args)
+        yoink = Yoink(namespace, self.settings)
+        report_files = yoink.locations_report.files_report['files']
+        self.assertEqual(1, len(report_files),
+                         f'{external_name} should be 1 file')
+
+        file_spec = report_files[0]
+
+        # calibration will have external name = relative path = subdirectory
+        relative_path = file_spec['relative_path']
+        self.assertEqual(external_name, relative_path,
+                         'expecting external_name same as relative path')
+        self.assertEqual(relative_path, file_spec['subdirectory'],
+                         'expecting relative_path same as subdirectory')
+
+        expected_files = [os.path.join(self.top_level, relative_path)]
+        yoink.run = MagicMock(return_value=expected_files)
+        actual_files = yoink.run()
+        num_expected = len(expected_files)
+        self.assertEqual(num_expected, len(actual_files), f'expecting '
+                                                          f'{num_expected} '
+                                                          f'calibration')
+    def test_retrieval_finds_size_mismatch(self):
         report_spec = LOCATION_REPORTS[VLA_SMALL_KEY]
         external_name = report_spec['external_name']
 
@@ -599,40 +696,68 @@ class YoinkTestCase(unittest.TestCase):
         return to_return
 
 
+logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
+_LOG = logging.getLogger(__name__)
 class Yoinker:
-    """ Wraps subprocess to run or mock command line
+    """ Launches Yoink from command line, with logging
     """
-    @classmethod
-    def run(self, args):
-        ''' executes command line represented by args
 
-            :returns command output
+    def __init__(self, args: List):
+        args_to_parse = args if args[0] != 'yoink' else args[1:]
+        namespace = get_arg_parser().parse_args(args_to_parse)
+        self.args = args
+        self.output_dir = namespace.output_dir
+        self.verbose = namespace.verbose
+
+    def run(self):
+        ''' launch yoink from command line
+            @:returns directory listing
         '''
-        if not args:
-            raise ValueError('arguments are required')
-
-        verbose = '--verbose' in args
-        logging.basicConfig(level=logging.DEBUG) if verbose \
-            else logging.basicConfig(level=logging.WARN)
-        lines = list()
-        with subprocess.Popen(args,
+        with subprocess.Popen(self.args,
                               stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT,
                               bufsize=1,
                               universal_newlines=True) as proc:
             if proc.stderr:
                 for err in proc.stderr:
-                    lines.append(err.strip())
+                    _LOG.error(err.strip())
 
             output = proc.stdout
             error_found = output.errors
-            for line in output:
-                line = line.strip()
-                _LOG.info(f'{line}')
-                if error_found or verbose:
-                    lines.append(line)
+            if error_found:
+                if isinstance(error_found, List):
+                    [_LOG.error(line) for line in error_found]
+                else:
+                    if error_found != 'strict':
+                        _LOG.error(error_found)
 
-            return lines
+            lines = list()
+            for line in output:
+                lines.append(line.strip())
+
+            for i in range(0, len(lines) - 1):
+                line = lines[i]
+                _LOG.info(f'{line}')
+                if 'error' in line.lower():
+                    # log everything after the error
+                    for j in range(i, len(lines) - 1):
+                        _LOG.error(lines[j])
+                if 'debug' in line.lower() and self.verbose:
+                    _LOG.debug(line)
+                if 'warn' in line.lower():
+                    _LOG.warning(line)
+
+        files_retrieved = list()
+        for root, dirnames, filenames in os.walk(self.output_dir):
+            if dirnames:
+                subdir = os.path.join(root, dirnames[0])
+            else:
+                subdir = root
+            for filename in filenames:
+                if not filename.endswith('.log') and not filename.endswith('.json'):
+                    files_retrieved.append(os.path.join(subdir, filename))
+
+        return files_retrieved
 
 
 if __name__ == '__main__':

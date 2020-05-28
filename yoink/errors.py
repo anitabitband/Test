@@ -1,3 +1,5 @@
+""" Custom error definitions for yoink """
+
 import logging
 import sys
 import traceback
@@ -23,6 +25,7 @@ class Errors(Enum):
     NGAS_SERVICE_ERROR = 10
     SIZE_MISMATCH = 11
     FILE_EXISTS_ERROR = 12
+    FILE_NOT_FOUND_ERROR = 13
 
 
 class NoProfileException(Exception):
@@ -85,9 +88,9 @@ TERMINAL_ERRORS = {
     Errors.NGAS_SERVICE_TIMEOUT: 'request to NGAS timed out',
     Errors.NGAS_SERVICE_REDIRECTS: 'too many redirects on NGAS service',
     Errors.NGAS_SERVICE_ERROR: 'catastrophic error on NGAS service',
-    Errors.SIZE_MISMATCH: 'retrieved file not expected size'
+    Errors.SIZE_MISMATCH: 'retrieved file not expected size',
+    Errors.FILE_NOT_FOUND_ERROR: 'target directory or file not found'
 }
-
 
 def get_error_descriptions():
     ''' user-friendly display of errors
@@ -124,13 +127,14 @@ def exception_to_error(exception):
         'NGASServiceTimeoutException': Errors.NGAS_SERVICE_TIMEOUT,
         'NGASServiceRedirectsException': Errors.NGAS_SERVICE_REDIRECTS,
         'NGASServiceErrorException': Errors.NGAS_SERVICE_ERROR,
-        'SizeMismatchException': Errors.SIZE_MISMATCH
+        'SizeMismatchException': Errors.SIZE_MISMATCH,
+        'FileNotFoundError': Errors.FILE_NOT_FOUND_ERROR,
     }
     return switcher.get(exception.__class__.__name__)
 
-
 def terminal_exception(exception):
-    ''' report exception, then throw in the towel
+    ''' report exception, then throw in the towel.
+        should be used by yoink -ONLY-
     '''
     errorno = exception_to_error(exception)
     _LOG.debug(traceback.format_exc())

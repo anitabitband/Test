@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Implementations of assorted product fetchers
+""" Implementations of assorted product fetchers """
 
 import copy
 import logging
@@ -14,24 +14,32 @@ from yoink.file_retrievers import NGASFileRetriever
 class BaseProductFetcher:
     """ This is a base class for fetchers. """
 
-    def __init__(self, args, settings, servers_report):
-        logging.basicConfig(level=logging.DEBUG) if args.verbose \
-            else logging.basicConfig(level=logging.WARN)
-        self._LOG = logging.getLogger(self.__class__.__name__)
+    def __init__(self, args, settings, logfile, servers_report):
         self.args = args
+        self.configure_logging(logfile)
         self.output_dir = args.output_dir
         self.force_overwrite = args.force
         self.dry_run = args.dry_run
         self.servers_report = servers_report
         self.settings = settings
-        self.ngas_retriever = NGASFileRetriever(args)
+        self.ngas_retriever = NGASFileRetriever(self.logfile, args)
         self.retrieved = []
         self.num_files_retrieved = 0
+
+    def configure_logging(self, logfile):
+        ''' set up logging
+        '''
+        self.logfile = logfile
+        self._LOG = logging.getLogger(self.logfile)
+        self.handler = logging.FileHandler(self.logfile)
+        self._LOG.addHandler(self.handler)
+        level = logging.DEBUG if self.args.verbose else logging.WARN
+        self._LOG.setLevel(level)
 
     def retrieve_files(self, server, retrieve_method, file_specs):
         ''' this is the part where we actually fetch the files
         '''
-        retriever = NGASFileRetriever(self.args)
+        retriever = NGASFileRetriever(self.logfile, self.args)
         num_files = len(file_specs)
         count = 0
 
@@ -72,8 +80,8 @@ class ParallelProductFetcher(BaseProductFetcher):
     """ Pull the files out in parallel; try to be clever about it.
     """
 
-    def __init__(self, args, settings, servers_report):
-        super().__init__(args, settings, servers_report)
+    def __init__(self, args, settings, logfile, servers_report):
+        super().__init__(args, settings, logfile, servers_report)
         self.num_files_expected = self._count_files_expected()
         self.bucketized_files = self._bucketize_files()
 

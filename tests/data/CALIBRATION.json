@@ -1,0 +1,19 @@
+{
+  "files": [
+    {
+      "ngas_file_id": "uid____EVLA_calibration_d20461ec-b0ad-44fe-86ad-a25b7a97e4c6.tar",
+      "subdirectory": "18B-265_2019_12_10_T00_00_59.203.tar",
+      "relative_path": "18B-265_2019_12_10_T00_00_59.203.tar",
+      "checksum": "722663767",
+      "checksum_type": "ngamsGenCrc32",
+      "version": 1,
+      "size": 27668480,
+      "server": {
+        "server": "nmngas04.aoc.nrao.edu:7777",
+        "location": "DSOC",
+        "cluster": "DSOC"
+      }
+    }
+  ],
+  "aggregate_size": 27668480
+}

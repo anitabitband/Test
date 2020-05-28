@@ -1,28 +1,50 @@
+""" A locations report is produced by the archive service; you give
+    it a product locator and it returns a dictionary of details on how
+    to retrieve the product's files from long term storage (NGAS): this
+    class handles fetching the report from the service or reading it from
+    a file, and has utilities to manipulate the report.
+
+"""
+
 import copy
 import http
 import json
 import logging
-from json import JSONDecodeError
 
 import requests
 
 from yoink.errors import LocationServiceTimeoutException, \
     LocationServiceRedirectsException, LocationServiceErrorException, \
     NoLocatorException, MissingSettingsException
-from yoink.utilities import Cluster, RetrievalMode, validate_file_spec
+from yoink.utilities import Cluster, RetrievalMode, validate_file_spec, \
+    LOG_FORMAT
 
 
 class LocationsReport:
-    """ A locations report is produced by the archive service, you give
-    it a product locator and it returns a dictionary of details on how
-    to retrieve the product's files from long term storage (NGAS): this
-    class handles fetching the report from the service or reading it from
-    a file, and has utilities to manipulate the report. """
+    ''' the location report class
 
-    def __init__(self, args, settings):
-        self._LOG = logging.getLogger(self.__class__.__name__)
+    '''
+
+    def __init__(self, logfile, args, settings):
+        self._logfile = logfile
+        self._verbose = args and args.verbose
+        self.configure_logging()
         self._capture_and_validate_input(args, settings)
         self._run()
+
+    # TODO: duplicate code; consolidate
+    #  HERE AND ELSEWHERE: easier just to pass the logger?
+    def configure_logging(self):
+        ''' set up logging
+        '''
+        self._LOG = logging.getLogger(self._logfile)
+        self.handler = logging.FileHandler(self._logfile)
+        formatter = logging.Formatter(LOG_FORMAT)
+        self.handler.setFormatter(formatter)
+        self._LOG.addHandler(self.handler)
+
+        level = logging.DEBUG if self._verbose else logging.WARN
+        self._LOG.setLevel(level)
 
     def _capture_and_validate_input(self, args, settings):
         if args is None:
@@ -146,15 +168,15 @@ class LocationsReport:
         """ Read a file at a user provided path
             to pull in the location report.
         """
-        try:
-            with open(self.location_file) as to_read:
-                result = json.load(to_read)
-                return result
-        except (JSONDecodeError, FileNotFoundError):
-            raise
-        except Exception as ex:
-            self._LOG.error(f'>>> unexpected exception thrown: {ex}')
-            raise
+        # try:
+        with open(self.location_file) as to_read:
+            result = json.load(to_read)
+            return result
+        # except (JSONDecodeError, FileNotFoundError):
+        #     raise
+        # except Exception as ex:
+        #     self._LOG.error(f'>>> unexpected exception thrown: {ex}')
+        #     raise
 
     def _get_location_report_from_service(self):
         """ Use 'requests' to fetch the location report from the locator service.
@@ -177,7 +199,7 @@ class LocationsReport:
         if response.status_code == http.HTTPStatus.OK:
             return response.json()
         elif response.status_code == http.HTTPStatus.NOT_FOUND:
-            raise NoLocatorException('cannot find locator {}'.
+            raise NoLocatorException('cannot find locator "{}"'.
                                      format(self.product_locator))
         else:
             raise LocationServiceErrorException('locator service returned {}'

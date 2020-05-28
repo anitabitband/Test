@@ -1,3 +1,5 @@
+""" Various conveniences for use and re-use in test cases """
+
 import json
 import os
 from pathlib import Path
@@ -35,6 +37,12 @@ LOCATION_REPORTS = {
         'filename' : 'VLBA_EB.json',
         'external_name' : '',
         'file_count' : 16,
+        'server_count' : 1
+    },
+    'CALIBRATION': {
+        'filename' : 'CALIBRATION.json',
+        'external_name' : '18B-265_2019_12_10_T00_00_59.203.tar',
+        'file_count' : 1,
         'server_count' : 1
     },
 
@@ -99,6 +107,14 @@ def get_filenames_for_locator(product_locator: str,
     namespace = get_arg_parser().parse_args(args)
     locations_report = LocationsReport(namespace, settings)
 
-    filenames = [file['relative_path'] for file in
-                 locations_report.files_report['files']]
-    return filenames
+    return [file['relative_path'] for file in
+            locations_report.files_report['files']]
+
+def find_yoink_log_file(target_dir: Path):
+    ''' yoink command line was executed; find the log
+    '''
+    for root, dirnames, filenames in os.walk(target_dir):
+        for filename in filenames:
+            if filename.startswith('Yoink_') and filename.endswith('.log'):
+                return os.path.join(root, filename)
+    return None
