@@ -1,11 +1,8 @@
 """ Unit tests for locations report """
-
-import logging
 import os
 import re
 import tempfile
 import unittest
-from time import time
 from json import JSONDecodeError
 
 import pytest
@@ -14,7 +11,7 @@ from tests.testing_utils import LOCATION_REPORTS, DATA_DIR
 from yoink.errors import Errors, NoLocatorException, MissingSettingsException
 from yoink.locations_report import LocationsReport
 from yoink.utilities import get_capo_settings, get_metadata_db_settings, \
-    ProductLocatorLookup, get_arg_parser, RetrievalMode, LOG_FORMAT
+    ProductLocatorLookup, get_arg_parser, RetrievalMode, FlexLogger
 
 
 class LocationsReportTestCase(unittest.TestCase):
@@ -32,38 +29,27 @@ class LocationsReportTestCase(unittest.TestCase):
     def setUp(cls) -> None:
         umask = os.umask(0o000)
         cls.top_level = tempfile.mkdtemp()
-        cls.configure_logging(cls)
+        cls._LOG = FlexLogger(cls.__class__.__name__, cls.top_level)
         os.umask(umask)
-
-    def configure_logging(self):
-        ''' set up logging
-        '''
-        log_pathname = f'LocationsReport_{str(time())}.log'
-        self._logfile = os.path.join(self.top_level, log_pathname)
-        self._LOG = logging.getLogger(self._logfile)
-        self.handler = logging.FileHandler(self._logfile)
-        formatter = logging.Formatter(LOG_FORMAT)
-        self.handler.setFormatter(formatter)
-        self._LOG.addHandler(self.handler)
 
     def test_init_failure(self):
 
-        with pytest.raises(TypeError):
+        with pytest.raises(AttributeError):
             LocationsReport(None, None, None)
 
-        with pytest.raises(TypeError):
+        with pytest.raises(AttributeError):
             LocationsReport(None, None, self.settings)
 
         args = ['--product-locator', self._13b_locator,
                 '--output-dir', '/nope', '--profile', self.profile]
         namespace = get_arg_parser().parse_args(args)
         with pytest.raises(MissingSettingsException):
-            LocationsReport(self._logfile, namespace, None)
+            LocationsReport(self._LOG, namespace, None)
 
         args = ['--product-locator', self._13b_locator]
         namespace = get_arg_parser().parse_args(args)
         with pytest.raises(MissingSettingsException):
-            LocationsReport(self._logfile, namespace, None)
+            LocationsReport(self._LOG, namespace, None)
 
         args = ['--output-dir', None, '--profile', None]
         with pytest.raises(SystemExit) as s_ex:
@@ -75,18 +61,18 @@ class LocationsReportTestCase(unittest.TestCase):
         args = ['--product-locator', self._13b_locator,
                 '--output-dir', None, '--profile', None]
         namespace = get_arg_parser().parse_args(args)
-        LocationsReport(self._logfile, namespace, self.settings)
+        LocationsReport(self._LOG, namespace, self.settings)
 
     def test_filters_sdms(self):
         args = ['--product-locator', self._13b_locator,
                 '--output-dir', None, '--profile', None]
         namespace = get_arg_parser().parse_args(args)
-        report = LocationsReport(self._logfile, namespace, self.settings)
+        report = LocationsReport(self._LOG, namespace, self.settings)
         all_files = report.files_report['files']
 
         args.append('--sdm-only')
         namespace = get_arg_parser().parse_args(args)
-        filtered_report = LocationsReport(self._logfile, namespace, self.settings)
+        filtered_report = LocationsReport(self._LOG, namespace, self.settings)
         filtered_files = filtered_report.files_report['files']
         sdms = [file for file in all_files
                 if re.match(r'.*\.(xml|bin)$', file['relative_path'])]
@@ -106,28 +92,52 @@ class LocationsReportTestCase(unittest.TestCase):
                 '--output-dir', None, '--profile', None]
         with pytest.raises(NoLocatorException):
             namespace = get_arg_parser().parse_args(args)
-            LocationsReport(self._logfile, namespace, self.settings)
+            LocationsReport(self._LOG, namespace, self.settings)
 
     def test_throws_file_error_if_cant_find_report_file(self):
         args = ['--location-file', 'Mildred',
                 '--output-dir', None, '--profile', None]
         namespace = get_arg_parser().parse_args(args)
         with pytest.raises(FileNotFoundError):
-            LocationsReport(self._logfile, namespace, self.settings)
+            LocationsReport(self._LOG, namespace, self.settings)
 
     def test_gets_expected_eb_from_locator(self):
         args = ['--product-locator', self._13b_locator,
                 '--output-dir', None, '--profile', None]
         namespace = get_arg_parser().parse_args(args)
-        report = LocationsReport(self._logfile, namespace, self.settings)
+        report = LocationsReport(self._LOG, namespace, self.settings)
         files = report.files_report['files']
         self.assertEqual(91, len(files), 'expecting 91 files in report')
+
+    def test_gets_empty_log_if_not_verbose(self):
+        args = ['--product-locator', self._13b_locator,
+                '--output-dir', None, '--profile', None]
+        namespace = get_arg_parser().parse_args(args)
+        report = LocationsReport(self._LOG, namespace, self.settings)
+        logfile = report.logfile
+        self.assertTrue(os.path.exists(logfile),
+                        f'expecting log file "{logfile}"')
+        self.assertEqual(0, os.path.getsize(logfile),
+                         'expecting an empty log file because not verbose')
+
+    def test_gets_non_empty_log_if_verbose(self):
+        args = ['--product-locator', self._13b_locator,
+                '--output-dir', None, '--profile', None]
+        namespace = get_arg_parser().parse_args(args)
+        verbose_logger = FlexLogger(self.__class__.__name__,
+                                    self.top_level, True)
+        report = LocationsReport(verbose_logger, namespace, self.settings)
+        logfile = report.logfile
+        self.assertTrue(os.path.exists(logfile),
+                        f'expecting log file "{logfile}"')
+        self.assertNotEqual(0, os.path.getsize(logfile),
+                            'expecting at least one log entry because verbose')
 
     def test_gets_expected_servers_info_from_locator(self):
         args = ['--product-locator', self._13b_locator,
                 '--output-dir', None, '--profile', None]
         namespace = get_arg_parser().parse_args(args)
-        report = LocationsReport(self._logfile, namespace, self.settings)
+        report = LocationsReport(self._LOG, namespace, self.settings)
         server_info = report.servers_report
         self.assertEqual(3, len(server_info), 'files should be on 3 NGAS hosts')
         for server in ('1', '3', '4'):
@@ -151,7 +161,7 @@ class LocationsReportTestCase(unittest.TestCase):
         args = ['--location-file', report_file,
                 '--output-dir', None, '--profile', None]
         namespace = get_arg_parser().parse_args(args)
-        report = LocationsReport(self._logfile, namespace, self.settings)
+        report = LocationsReport(self._LOG, namespace, self.settings)
         files = report.files_report['files']
         self.assertEqual(report_metadata['file_count'], len(files),
                          f"expecting {report_metadata['file_count']} files in report")
@@ -189,7 +199,7 @@ class LocationsReportTestCase(unittest.TestCase):
         args = ['--location-file', report_file,
                 '--output-dir', None, '--profile', None]
         namespace = get_arg_parser().parse_args(args)
-        report = LocationsReport(self._logfile, namespace, self.settings)
+        report = LocationsReport(self._LOG, namespace, self.settings)
         files = report.files_report['files']
         self.assertEqual(report_metadata['file_count'], len(files),
                          f"expecting {report_metadata['file_count']} files in report")
@@ -217,7 +227,7 @@ class LocationsReportTestCase(unittest.TestCase):
         args = ['--location-file', report_file,
                 '--output-dir', None, '--profile', None]
         namespace = get_arg_parser().parse_args(args)
-        report = LocationsReport(self._logfile, namespace, self.settings)
+        report = LocationsReport(self._LOG, namespace, self.settings)
         files = report.files_report['files']
         self.assertEqual(report_metadata['file_count'], len(files),
                          f"expecting {report_metadata['file_count']} files in report")
@@ -245,7 +255,7 @@ class LocationsReportTestCase(unittest.TestCase):
         args = ['--location-file', report_file,
                 '--output-dir', None, '--profile', None]
         namespace = get_arg_parser().parse_args(args)
-        report = LocationsReport(self._logfile, namespace, self.settings)
+        report = LocationsReport(self._LOG, namespace, self.settings)
         files = report.files_report['files']
         self.assertEqual(report_metadata['file_count'], len(files),
                          f"expecting {report_metadata['file_count']} files in report")
@@ -271,7 +281,7 @@ class LocationsReportTestCase(unittest.TestCase):
                 '--output-dir', None, '--profile', None]
         namespace = get_arg_parser().parse_args(args)
         with pytest.raises(JSONDecodeError):
-            LocationsReport(self._logfile, namespace, self.settings)
+            LocationsReport(self._LOG, namespace, self.settings)
 
     def test_throws_json_error_if_report_file_is_not_json(self):
         report_file = os.path.join(DATA_DIR, 'NOT_JSON.json')
@@ -279,7 +289,7 @@ class LocationsReportTestCase(unittest.TestCase):
                 '--output-dir', None, '--profile', None]
         namespace = get_arg_parser().parse_args(args)
         with pytest.raises(JSONDecodeError):
-            LocationsReport(self._logfile, namespace, self.settings)
+            LocationsReport(self._LOG, namespace, self.settings)
 
     def test_local_profile_is_streaming_else_copy(self):
         old_exec_site = self.settings['execution_site']
@@ -288,7 +298,7 @@ class LocationsReportTestCase(unittest.TestCase):
             args = ['--product-locator', self._13b_locator,
                     '--output-dir', None, '--profile', self.profile]
             namespace = get_arg_parser().parse_args(args)
-            report = LocationsReport(self._logfile, namespace, self.settings)
+            report = LocationsReport(self._LOG, namespace, self.settings)
             server_info = report.servers_report
             for item in server_info.items():
                 self.assertEqual(RetrievalMode.STREAM,
@@ -300,7 +310,7 @@ class LocationsReportTestCase(unittest.TestCase):
         args = ['--product-locator', self._13b_locator,
                 '--output-dir', None, '--profile', self.profile]
         namespace = get_arg_parser().parse_args(args)
-        report = LocationsReport(self._logfile, namespace, self.settings)
+        report = LocationsReport(self._LOG, namespace, self.settings)
         server_info = report.servers_report
         for item in server_info.items():
             self.assertEqual(RetrievalMode.COPY, item[1]['retrieve_method'],

@@ -9,8 +9,9 @@ import argparse
 import logging
 import os
 import pathlib
-import time
+from time import time
 from enum import Enum
+from typing import Callable
 
 import psycopg2 as pg
 from pycapo import CapoConfig
@@ -19,8 +20,8 @@ from yoink.errors import get_error_descriptions, NoProfileException, \
     MissingSettingsException, NGASServiceErrorException, SizeMismatchException
 
 LOG_FORMAT = "%(module)s.%(funcName)s, %(lineno)d: %(message)s"
-logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
-_LOG = logging.getLogger(__name__)
+# logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
+# _LOG = logging.getLogger(__name__)
 
 MAX_TRIES = 10
 SLEEP_INTERVAL_SECONDS = 1
@@ -30,10 +31,10 @@ SERVER_SPEC_KEYS = ['server', 'location', 'cluster', 'retrieve_method']
 
 # Prologue and epilogue for the command line parser.
 _PROLOGUE = \
-    """Retrieve a product (a science product or an ancillary product) 
-from the NRAO archive,
-either by specifying the product's locator or by providing the path to a product
-locator report."""
+    """Retrieve a product (a science product or an ancillary product) from 
+    the NRAO archive, either by specifying the product's locator or by 
+    providing the path to a product locator report.
+"""
 _EPILOGUE = get_error_descriptions()
 
 # This is a dictionary of required CAPO settings and the attribute names we'll store them as.
@@ -56,14 +57,14 @@ def path_is_accessible(path):
     can_access = can_access and os.access(path, os.X_OK)
     return can_access
 
-# TODO: parser should be a class; write unit tests
 def get_arg_parser():
     """ Build and return an argument parser with the command line options
-        for yoink; this is out here and not in a class because Sphinx needs it
+        for yoink. this is out here and not in a class because Sphinx needs it
         to build the docs.
 
     :return: an argparse 'parser' with command line options for yoink.
     """
+
     cwd = pathlib.Path().absolute()
     parser = argparse.ArgumentParser(description=_PROLOGUE, epilog=_EPILOGUE,
                                      formatter_class=
@@ -105,7 +106,7 @@ def get_arg_parser():
     return parser
 
 
-def get_capo_settings(profile):
+def get_capo_settings(profile: str):
     """ Get the required CAPO settings for yoink for the provided profile
     (prod, test). Spits out an error message and exits (1) if it can't find
     one of them.
@@ -120,14 +121,12 @@ def get_capo_settings(profile):
     for setting in REQUIRED_SETTINGS:
         value = None
         setting = setting.upper()
-        _LOG.debug('looking for setting {}'.format(setting))
         try:
             value = capo[setting]
         except KeyError:
             raise MissingSettingsException('missing required setting "{}"'
                                            .format(setting))
         result[REQUIRED_SETTINGS[setting]] = value
-    _LOG.debug('CAPO settings: {}'.format(str(result)))
     return result
 
 def get_metadata_db_settings(profile):
@@ -142,7 +141,6 @@ def get_metadata_db_settings(profile):
     fields = ['jdbcDriver', 'jdbcUrl', 'jdbcUsername', 'jdbcPassword']
     qualified_fields = ['metadataDatabase.' + field for field in fields]
     for field in qualified_fields:
-        _LOG.debug(f'looking for {field}....')
         try:
             value = config[field]
             result[field] = value
@@ -205,16 +203,72 @@ class ProductLocatorLookup:
         return product_locator[0]
 
 
+class FlexLogger():
+    ''' This class wraps a logger, adding the ability to specify
+        logging level as warning or debug based on the "verbose" flag
+
+    '''
+
+    def __init__(self, class_name: str, output_dir: pathlib.Path,
+                 verbose=False):
+        ''' set up logging
+        '''
+        if class_name is None:
+            raise MissingSettingsException('class name is required')
+        log_pathname = f'{class_name}_{str(time())}.log'
+        try:
+            self.logfile = os.path.join(output_dir, log_pathname)
+            self.logger = logging.getLogger(self.logfile)
+            self.verbose = verbose
+            handler = logging.FileHandler(self.logfile)
+            formatter = logging.Formatter(LOG_FORMAT)
+            handler.setFormatter(formatter)
+            self.logger.addHandler(handler)
+        except (PermissionError, FileNotFoundError) as err:
+            self.logger.error(
+                f'Problem creating logger for {class_name}: {err}')
+            raise
+
+        level = logging.DEBUG if self.verbose else logging.WARN
+        self.logger.setLevel(level)
+
+    def set_verbose(self, verbose: bool):
+        ''' specify verbose logging:
+            True == debug and above
+            False == warnings and above
+            '''
+        self.verbose = verbose
+
+    def debug(self, message: str):
+        ''' log a debug message
+        '''
+        if self.verbose:
+            self.logger.debug(message)
+
+    def warning(self, message: str):
+        ''' log a warning message '''
+        self.logger.warning(message)
+
+    def error(self, message: str):
+        ''' log an error '''
+        self.logger.error(message)
+
+
 class Retryer:
     """
     Retry executing a function, or die trying
     """
 
-    def __init__(self, func, max_tries, sleep_interval):
+    def __init__(
+            self, func: Callable,
+            max_tries: int,
+            sleep_interval: int,
+            logger: FlexLogger):
         self.func = func
         self.num_tries = 0
         self.max_tries = max_tries
         self.sleep_interval = sleep_interval
+        self._logger = logger
         self.complete = False
 
     def retry(self, *args):
@@ -225,9 +279,9 @@ class Retryer:
         :return:
         '''
 
+        import time
         while self.num_tries < self.max_tries and not self.complete:
 
-            _LOG.info(f'trying {self.func.__name__}({args})....')
             self.num_tries += 1
             exc = None
             try:
@@ -236,10 +290,11 @@ class Retryer:
                     self.complete = True
                 else:
                     if self.num_tries < self.max_tries:
-                        _LOG.info('iteration #{}: {}; trying again after {} '
-                                  'seconds....'
-                                  .format(self.num_tries, exc,
-                                          self.sleep_interval))
+                        self._logger.debug(
+                            'iteration #{}: {}; trying again after {} '
+                            'seconds....'
+                            .format(self.num_tries, exc,
+                                    self.sleep_interval))
                         time.sleep(self.sleep_interval)
                     else:
                         raise NGASServiceErrorException(
@@ -248,11 +303,11 @@ class Retryer:
 
             except (NGASServiceErrorException, SizeMismatchException) as exc:
                 if self.num_tries < self.max_tries:
-                    _LOG.info('{}; trying again after {} seconds....'
-                              .format(exc, self.sleep_interval))
+                    self._logger.debug('{}; trying again after {} seconds....'
+                                       .format(exc, self.sleep_interval))
                     time.sleep(self.sleep_interval)
                 else:
-                    _LOG.error(
+                    self._logger.error(
                         'FAILURE after {} attempts'.format(self.num_tries))
                     raise exc
 

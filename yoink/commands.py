@@ -3,16 +3,15 @@
 
 """ Module for the command line interface to yoink. """
 
-import os, logging
+import logging
 import sys
 import traceback
-from time import time
 
 from yoink.errors import NoLocatorException, \
     NGASServiceErrorException, exception_to_error, terminal_exception
-from yoink.product_fetchers import ParallelProductFetcher
-from yoink.utilities import get_arg_parser, get_capo_settings, LOG_FORMAT
 from yoink.locations_report import LocationsReport
+from yoink.product_fetchers import ParallelProductFetcher
+from yoink.utilities import get_arg_parser, get_capo_settings, FlexLogger
 
 
 class Yoink:
@@ -35,52 +34,46 @@ class Yoink:
     def __init__(self, args, settings):
         self.args = args
         self.settings = settings
-        self.configure_logging()
+
+        verbose = args and args.verbose
         try:
+            self._LOG = FlexLogger(self.__class__.__name__, args.output_dir, verbose)
+            self.logfile = self._LOG.logfile
             self.locations_report = self._get_locations()
             self.servers_report = self.locations_report.servers_report
         except (NoLocatorException, FileNotFoundError, PermissionError) as exc:
             self._terminal_exception(exc)
         except TypeError as exc:
-            self._LOG.error(f'TODO: handle TypeError')
+            self._LOG.error('TODO: handle TypeError')
             self._terminal_exception(exc)
         except Exception as exc:
             self._LOG.error(
                 f'>>> throwing unexpected {type(exc)} during init: {exc}')
             self._terminal_exception(exc)
 
-    def configure_logging(self):
-        ''' set up logging
-        '''
-        self.output_dir = self.args.output_dir
-        log_pathname = f'{self.__class__.__name__}_{str(time())}.log'
-        try:
-            self.logfile = os.path.join(self.output_dir, log_pathname)
-            self._LOG = logging.getLogger(self.logfile)
-            self.handler = logging.FileHandler(self.logfile)
-            formatter = logging.Formatter(LOG_FORMAT)
-            self.handler.setFormatter(formatter)
-            self._LOG.addHandler(self.handler)
-        except (PermissionError, FileNotFoundError) as err:
-            self._terminal_exception(err)
-
-        level = logging.DEBUG if self.args.verbose else logging.WARN
-        self._LOG.setLevel(level)
-
     def run(self):
+        """
+        launch the fetcher
+        :return:
+        """
+
         try:
             return ParallelProductFetcher(
-                self.args, self.settings, self.logfile,
+                self.args, self.settings, self._LOG,
                 self.servers_report).run()
         except (NGASServiceErrorException, FileExistsError) as exc:
             self._terminal_exception(exc)
+        except AttributeError as a_err:
+            self._LOG.error(f'>>> throwing AttributeError during run: {a_err}')
+            self._terminal_exception(a_err)
         except Exception as exc:
-            self._LOG.error(f'>>> throwing unexpected exception during run: {exc}')
+            self._LOG.error(
+                f'>>> throwing unexpected exception during run: {exc}')
             self._terminal_exception(exc)
 
     def _get_locations(self):
         try:
-            return LocationsReport(self.logfile, self.args, self.settings)
+            return LocationsReport(self._LOG, self.args, self.settings)
         except NoLocatorException as exc:
             self._terminal_exception(exc)
 
@@ -88,9 +81,15 @@ class Yoink:
         ''' report exception, then throw in the towel
         '''
         errorno = exception_to_error(exception)
-        self._LOG.debug(traceback.format_exc())
-        self._LOG.error(f'{type(exception)}: {str(exception)}')
-        sys.exit(errorno.value)
+        try:
+            self._LOG.debug(traceback.format_exc())
+            exc_type = type(exception)
+            self._LOG.error('terminal_exception')
+            self._LOG.error(f'{exc_type}: {str(exception)}')
+        except Exception as exc:
+            logging.error(exc)
+        finally:
+            sys.exit(errorno.value)
 
 
 def main():

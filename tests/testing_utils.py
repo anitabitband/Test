@@ -80,7 +80,7 @@ def get_mini_exec_block():
         [file for file in locations_in['files'] if file['size'] <= 100000]
     return locations_out
 
-def get_mini_locations_file(destination: Path):
+def get_mini_locations_file(destination):
     ''' return a location report file with large files excised
     '''
     locations_report = get_mini_exec_block()

@@ -3,53 +3,45 @@
 """ Implementations of assorted product fetchers """
 
 import copy
-import logging
 import os
+from argparse import Namespace
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Dict
 
 from yoink.errors import NGASServiceErrorException
 from yoink.file_retrievers import NGASFileRetriever
+from yoink.utilities import FlexLogger
 
 
 class BaseProductFetcher:
     """ This is a base class for fetchers. """
 
-    def __init__(self, args, settings, logfile, servers_report):
+    def __init__(self, args: Namespace, settings: Dict, logger: FlexLogger,
+                 servers_report: Dict):
         self.args = args
-        self.configure_logging(logfile)
-        self.output_dir = args.output_dir
+        self.output_dir = self.args.output_dir
+        self._LOG = logger
         self.force_overwrite = args.force
         self.dry_run = args.dry_run
         self.servers_report = servers_report
         self.settings = settings
-        self.ngas_retriever = NGASFileRetriever(self.logfile, args)
+        self.ngas_retriever = NGASFileRetriever(self.args, self._LOG)
         self.retrieved = []
         self.num_files_retrieved = 0
-
-    def configure_logging(self, logfile):
-        ''' set up logging
-        '''
-        self.logfile = logfile
-        self._LOG = logging.getLogger(self.logfile)
-        self.handler = logging.FileHandler(self.logfile)
-        self._LOG.addHandler(self.handler)
-        level = logging.DEBUG if self.args.verbose else logging.WARN
-        self._LOG.setLevel(level)
 
     def retrieve_files(self, server, retrieve_method, file_specs):
         ''' this is the part where we actually fetch the files
         '''
-        retriever = NGASFileRetriever(self.logfile, self.args)
+        retriever = NGASFileRetriever(self.args, self._LOG)
         num_files = len(file_specs)
         count = 0
 
-        # try:
         for file_spec in file_specs:
             count += 1
 
-            self._LOG.info(f">>> retrieving {file_spec['relative_path']} "
-                           f"({file_spec['size']} bytes, "
-                           f"no. {count} of {num_files})....")
+            self._LOG.debug(f">>> retrieving {file_spec['relative_path']} "
+                            f"({file_spec['size']} bytes, "
+                            f"no. {count} of {num_files})....")
             self.retrieved.append(
                 retriever.retrieve(server, retrieve_method, file_spec))
 
@@ -63,8 +55,9 @@ class SerialProductFetcher(BaseProductFetcher):
     # TODO some fine day: add yoink_tests for this IFF it will be used in
     #  production
 
-    def __init__(self, args, settings, servers_report):
-        super().__init__(args, settings, servers_report)
+    def __init__(self, args: Namespace, settings: Dict, logger: FlexLogger,
+                 servers_report: Dict):
+        super().__init__(args, settings, logger, servers_report)
 
     def run(self):
         self._LOG.debug('writing to {}'.format(self.output_dir))
@@ -80,8 +73,10 @@ class ParallelProductFetcher(BaseProductFetcher):
     """ Pull the files out in parallel; try to be clever about it.
     """
 
-    def __init__(self, args, settings, logfile, servers_report):
-        super().__init__(args, settings, logfile, servers_report)
+
+    def __init__(self, args: Namespace, settings: Dict, logger: FlexLogger,
+                 servers_report: Dict):
+        super().__init__(args, settings, logger, servers_report)
         self.num_files_expected = self._count_files_expected()
         self.bucketized_files = self._bucketize_files()
 
@@ -126,9 +121,9 @@ class ParallelProductFetcher(BaseProductFetcher):
     def fetch_bucket(self, bucket):
         ''' Grab the files in this bucket
         '''
-        self._LOG.info(f"{bucket['retrieve_method']} "
-                       f"{len(bucket['files'])} files from "
-                       f"{bucket['server']}....")
+        self._LOG.debug(f"{bucket['retrieve_method']} "
+                        f"{len(bucket['files'])} files from "
+                        f"{bucket['server']}....")
         self.retrieve_files(bucket['server'],
                             bucket['retrieve_method'],
                             bucket['files'])

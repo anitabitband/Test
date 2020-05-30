@@ -9,7 +9,8 @@
 import copy
 import http
 import json
-import logging
+from argparse import Namespace
+from typing import Dict, List
 
 import requests
 
@@ -17,7 +18,7 @@ from yoink.errors import LocationServiceTimeoutException, \
     LocationServiceRedirectsException, LocationServiceErrorException, \
     NoLocatorException, MissingSettingsException
 from yoink.utilities import Cluster, RetrievalMode, validate_file_spec, \
-    LOG_FORMAT
+    FlexLogger
 
 
 class LocationsReport:
@@ -25,26 +26,14 @@ class LocationsReport:
 
     '''
 
-    def __init__(self, logfile, args, settings):
-        self._logfile = logfile
+    def __init__(self, logger: FlexLogger, args: Namespace, settings: Dict):
+        self._LOG = logger
+        self.logfile = logger.logfile
         self._verbose = args and args.verbose
-        self.configure_logging()
+        if self._verbose:
+            logger.set_verbose(True)
         self._capture_and_validate_input(args, settings)
         self._run()
-
-    # TODO: duplicate code; consolidate
-    #  HERE AND ELSEWHERE: easier just to pass the logger?
-    def configure_logging(self):
-        ''' set up logging
-        '''
-        self._LOG = logging.getLogger(self._logfile)
-        self.handler = logging.FileHandler(self._logfile)
-        formatter = logging.Formatter(LOG_FORMAT)
-        self.handler.setFormatter(formatter)
-        self._LOG.addHandler(self.handler)
-
-        level = logging.DEBUG if self._verbose else logging.WARN
-        self._LOG.setLevel(level)
 
     def _capture_and_validate_input(self, args, settings):
         if args is None:
@@ -168,6 +157,8 @@ class LocationsReport:
         """ Read a file at a user provided path
             to pull in the location report.
         """
+
+        self._LOG.debug(f'fetching files from report "{self.location_file}"')
         # try:
         with open(self.location_file) as to_read:
             result = json.load(to_read)

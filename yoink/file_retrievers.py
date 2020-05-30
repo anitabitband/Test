@@ -3,8 +3,9 @@
 """
 Implementations of assorted file retrievers.
 """
-import logging
+import http
 import os
+from argparse import Namespace
 from pathlib import Path
 
 import requests
@@ -13,7 +14,7 @@ from bs4 import BeautifulSoup
 from yoink.errors import SizeMismatchException, NGASServiceErrorException, \
     FileErrorException, MissingSettingsException
 from yoink.utilities import RetrievalMode, Retryer, MAX_TRIES, \
-    SLEEP_INTERVAL_SECONDS, LOG_FORMAT
+    SLEEP_INTERVAL_SECONDS, FlexLogger
 
 _DIRECT_COPY_PLUGIN = 'ngamsDirectCopyDppi'
 _STREAMING_CHUNK_SIZE = 8192
@@ -23,27 +24,24 @@ class NGASFileRetriever:
         and saving it to the requested location.
     """
 
-    def __init__(self, logfile, args):
-        self.logfile = logfile
-        self.configure_logging(args.verbose)
+    def __init__(self, args: Namespace, logger: FlexLogger):
         self.output_dir = args.output_dir
+        self._LOG = logger
+        self.logfile = self._LOG.logfile
         self.dry_run = args.dry_run
         self.force_overwrite = args.force
         self.fetch_attempted = False
         self.num_tries = 0
 
-    # TODO: duplicate code; consolidate
-    def configure_logging(self, verbose):
-        ''' set up logging
-        '''
-        self._LOG = logging.getLogger(self.logfile)
-        self.handler = logging.FileHandler(self.logfile)
-        formatter = logging.Formatter(LOG_FORMAT)
-        self.handler.setFormatter(formatter)
-        self._LOG.addHandler(self.handler)
-
-        level = logging.DEBUG if verbose else logging.WARN
-        self._LOG.setLevel(level)
+    # def __init__(self, logfile, args):
+    #     self.logfile = logfile
+    #     self.output_dir = args.output_dir
+    #     self._LOG = FlexLogger(
+    #         self.__class__.__name__, self.output_dir, args.verbose)
+    #     self.dry_run = args.dry_run
+    #     self.force_overwrite = args.force
+    #     self.fetch_attempted = False
+    #     self.num_tries = 0
 
     def retrieve(self, server, retrieve_method, file_spec):
         """ Retrieve a file described in the file_spec from a given
@@ -66,7 +64,7 @@ class NGASFileRetriever:
 
         func = self._copying_fetch if retrieve_method == RetrievalMode.COPY \
             else self._streaming_fetch
-        retryer = Retryer(func, MAX_TRIES, SLEEP_INTERVAL_SECONDS)
+        retryer = Retryer(func, MAX_TRIES, SLEEP_INTERVAL_SECONDS, self._LOG)
         try:
             retryer.retry(download_url, destination, file_spec)
         finally:
@@ -138,13 +136,9 @@ class NGASFileRetriever:
             self._LOG.debug(
                 '(This was a dry run; no files should have been fetched)')
 
-    def _copying_fetch(self, args):
+    def _copying_fetch(self, args: list):
         """ Pull a file out of NGAS via the direct copy plugin.
-
-        :param download_url: the address to hit
-        :param destination:  the path to where to store the result
-        :param file_spec:  file specification of the requested file
-        :return:
+            :param args: List
         """
         download_url, destination, file_spec = args
 
@@ -158,7 +152,7 @@ class NGASFileRetriever:
             with requests.Session() as session:
                 response = session.get(download_url, params=params)
 
-                if response.status_code != requests.codes.ok:
+                if response.status_code != http.HTTPStatus.OK:
                     self._LOG.error(
                         'NGAS does not like this request:\n{}'
                         .format(response.url))
@@ -179,12 +173,10 @@ class NGASFileRetriever:
 
         return True
 
-    def _streaming_fetch(self, args):
+    def _streaming_fetch(self, args: list):
         """ Pull a file out of NGAS via streaming.
 
-        :param download_url: the address to hit
-        :param destination:  the path to where to store the result
-        :param file_spec:  file specification of the requested file
+        :param args: list
         :return:
         """
 
@@ -227,7 +219,7 @@ class NGASFileRetriever:
                 except AttributeError as a_err:
                     self._LOG.warning(f'possible problem streaming: {a_err}')
 
-                if response.status_code != requests.codes.ok:
+                if response.status_code !=  http.HTTPStatus.OK:
                     self._LOG.error('NGAS does not like this request:\n{}'
                                     .format(response.url))
                     soup = BeautifulSoup(response.text, 'lxml-xml')
@@ -240,7 +232,7 @@ class NGASFileRetriever:
                          'reason': response.reason,
                          'message': message})
 
-                self._LOG.info('retrieved {} from {}'.
+                self._LOG.debug('retrieved {} from {}'.
                                format(destination, response.url))
 
         else:

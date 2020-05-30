@@ -2,23 +2,21 @@
 
 import http
 import json
-import logging
 import os
 import tempfile
 import unittest
 from pathlib import Path
-from time import time
 from typing import List
 
 import pytest
 
 from yoink.errors import NGASServiceErrorException, \
-    SizeMismatchException, MissingSettingsException
+    SizeMismatchException, MissingSettingsException, FileErrorException
 from yoink.file_retrievers import NGASFileRetriever
-from yoink.utilities import Retryer, get_capo_settings, \
+from yoink.utilities import get_capo_settings, \
     get_metadata_db_settings, ProductLocatorLookup, get_arg_parser, \
     path_is_accessible, Cluster, RetrievalMode, MAX_TRIES, \
-    SLEEP_INTERVAL_SECONDS, LOG_FORMAT
+    FlexLogger
 
 _A_FEW_TRIES = 3
 
@@ -33,26 +31,17 @@ class RetrieverTestCase(unittest.TestCase):
 
         # local profile is required to force streaming
         cls.profile = 'local'
+
         cls.settings = get_capo_settings(cls.profile)
         cls.db_settings = get_metadata_db_settings(cls.profile)
-        cls.test_data = cls._initialize_13B_014_test_data(cls)
+        cls.test_data = cls._initialize_13b_014_file_spec(cls)
 
     @classmethod
     def setUp(cls) -> None:
         umask = os.umask(0o000)
         cls.top_level = tempfile.mkdtemp()
-        cls.configure_logging(cls)
+        cls._LOG = FlexLogger(cls.__class__.__name__, cls.top_level)
         os.umask(umask)
-
-    def configure_logging(self):
-        ''' set up logging yet again (todo: consolidate)'''
-        log_pathname = f'NGASFileRetriever_{str(time())}.log'
-        self.logfile = os.path.join(self.top_level, log_pathname)
-        self._LOG = logging.getLogger(self.logfile)
-        self.handler = logging.FileHandler(self.logfile)
-        formatter = logging.Formatter(LOG_FORMAT)
-        self.handler.setFormatter(formatter)
-        self._LOG.addHandler(self.handler)
 
     def test_retriever_accepts_valid_partial_args(self):
         file_spec = self.test_data['files'][1]
@@ -65,7 +54,7 @@ class RetrieverTestCase(unittest.TestCase):
 
         server = file_spec['server']['server']
 
-        retriever = NGASFileRetriever(self.logfile, namespace)
+        retriever = NGASFileRetriever(namespace, self._LOG)
         retrieved = retriever.retrieve(server, RetrievalMode.STREAM, file_spec)
         self.assertTrue(os.path.exists(retrieved), 'retrieved file must exist')
         self.assertTrue(os.path.isfile(retrieved),
@@ -95,9 +84,9 @@ class RetrieverTestCase(unittest.TestCase):
                 '--profile', self.profile]
         namespace = get_arg_parser().parse_args(args)
         server = file_spec['server']['server']
-        retriever = NGASFileRetriever(self.logfile, namespace)
+        retriever = NGASFileRetriever(namespace, self._LOG)
 
-        # exception should be thrown because one of the files to be retrieved
+    # exception should be thrown because one of the files to be retrieved
         # is in the destination dir
         with pytest.raises(FileExistsError):
             retriever.retrieve(server, RetrievalMode.STREAM, file_spec)
@@ -113,7 +102,7 @@ class RetrieverTestCase(unittest.TestCase):
         namespace = get_arg_parser().parse_args(args)
 
         server = file_spec['server']['server']
-        retriever = NGASFileRetriever(self.logfile, namespace)
+        retriever = NGASFileRetriever(namespace, self._LOG)
         to_be_retrieved = os.path.join(destination, file_spec['relative_path'])
         retriever.retrieve(server, RetrievalMode.STREAM, file_spec)
         self.assertFalse(os.path.exists(to_be_retrieved),
@@ -121,7 +110,6 @@ class RetrieverTestCase(unittest.TestCase):
         self.assertTrue(retriever.fetch_attempted,
                         'streaming_fetch() should have been entered')
 
-    # @unittest.skip('verbose log test suspended until NGAS is fixed')
     def test_verbose_log_has_debug_messages(self):
         file_spec = self.test_data['files'][0]
         destination = os.path.join(self.top_level, file_spec['external_name'])
@@ -134,7 +122,8 @@ class RetrieverTestCase(unittest.TestCase):
         namespace = get_arg_parser().parse_args(args)
 
         server = file_spec['server']['server']
-        retriever = NGASFileRetriever(self.logfile, namespace)
+        logger = FlexLogger(self.__class__.__name__, self.top_level, True)
+        retriever = NGASFileRetriever(namespace, logger)
         to_be_retrieved = os.path.join(destination, file_spec['relative_path'])
         retriever.retrieve(
             server, RetrievalMode.STREAM, file_spec)
@@ -145,7 +134,9 @@ class RetrieverTestCase(unittest.TestCase):
                 subdir = os.path.join(root, dirnames[0])
             else:
                 subdir = root
-            for filename in filenames:
+            to_add = [file for file in filenames
+                      if not str(file).endswith('.log')]
+            for filename in to_add:
                 files_retrieved.append(os.path.join(subdir, filename))
 
         self.assertEqual(1, len(files_retrieved),
@@ -153,9 +144,9 @@ class RetrieverTestCase(unittest.TestCase):
         self.assertEqual(7566, os.path.getsize(to_be_retrieved),
                          f'expecting {to_be_retrieved} to be 7566 bytes')
 
-        self.assertTrue(os.path.isfile(self.logfile),
-                        f'expecting log file {os.path.basename(self.logfile)}')
-        self.assertNotEqual(0, os.path.getsize(self.logfile),
+        self.assertTrue(os.path.isfile(retriever.logfile),
+                        f'expecting log file {os.path.basename(retriever.logfile)}')
+        self.assertNotEqual(0, os.path.getsize(retriever.logfile),
                             'log file should not be empty')
 
     def test_non_verbose_log_empty(self):
@@ -170,7 +161,7 @@ class RetrieverTestCase(unittest.TestCase):
         namespace = get_arg_parser().parse_args(args)
 
         server = file_spec['server']['server']
-        retriever = NGASFileRetriever(self.logfile, namespace)
+        retriever = NGASFileRetriever(namespace, self._LOG)
         to_be_retrieved = os.path.join(destination, file_spec['relative_path'])
         retriever.retrieve(
             server, RetrievalMode.STREAM, file_spec)
@@ -181,20 +172,24 @@ class RetrieverTestCase(unittest.TestCase):
                 subdir = os.path.join(root, dirnames[0])
             else:
                 subdir = root
-            for filename in filenames:
+            to_add = [file for file in filenames if not str(
+                file).endswith('.log')]
+            for filename in to_add:
                 files_retrieved.append(os.path.join(subdir, filename))
         self.assertEqual(1, len(files_retrieved),
                          'one file should have been retrieved')
         self.assertEqual(7566, os.path.getsize(to_be_retrieved),
                          f'expecting {to_be_retrieved} to be 7566 bytes')
 
-        self.assertTrue(os.path.isfile(self.logfile),
-                        f'expecting log file {os.path.basename(self.logfile)}')
-        self.assertEqual(0, os.path.getsize(self.logfile),
+        logfile = self._LOG.logfile
+        self.assertTrue(os.path.isfile(logfile),
+                        f'expecting log file {os.path.basename(logfile)}')
+        self.assertEqual(0, os.path.getsize(logfile),
                          'log file should be empty')
 
     def test_stream_inaccessible_destination_throws_file_error(self):
         file_spec = self.test_data['files'][0]
+
         # make directory read-only
         os.chmod(self.top_level, 0o444)
         self.assertFalse(path_is_accessible(self.top_level),
@@ -204,8 +199,9 @@ class RetrieverTestCase(unittest.TestCase):
                 '--output-dir', self.top_level, '--profile', self.profile]
         namespace = get_arg_parser().parse_args(args)
 
-        with pytest.raises(PermissionError):
-            NGASFileRetriever(self.logfile, namespace)
+        with pytest.raises(FileErrorException):
+            NGASFileRetriever(namespace, self._LOG).retrieve(
+                file_spec['server']['server'], RetrievalMode.STREAM, file_spec)
 
         # make directory writeable again so it'll get deleted
         os.chmod(self.top_level, 0o555)
@@ -219,7 +215,7 @@ class RetrieverTestCase(unittest.TestCase):
 
         server = file_spec['server']['server']
         retrieve_method = RetrievalMode.COPY
-        retriever = NGASFileRetriever(self.logfile, namespace)
+        retriever = NGASFileRetriever(namespace, self._LOG)
 
         destination = os.path.join(top_level, file_spec['external_name'])
         to_be_retrieved = os.path.join(destination, file_spec['relative_path'])
@@ -240,7 +236,7 @@ class RetrieverTestCase(unittest.TestCase):
 
         server = file_spec['server']['server']
         retrieve_method = RetrievalMode.STREAM
-        retriever = NGASFileRetriever(self.logfile, namespace)
+        retriever = NGASFileRetriever(namespace, self._LOG)
 
         destination = os.path.join(self.top_level, file_spec['external_name'])
         to_be_retrieved = os.path.join(destination, file_spec['relative_path'])
@@ -260,7 +256,7 @@ class RetrieverTestCase(unittest.TestCase):
 
         server = file_spec['server']['server']
         retrieve_method = RetrievalMode.STREAM
-        retriever = NGASFileRetriever(self.logfile, namespace)
+        retriever = NGASFileRetriever(namespace, self._LOG)
 
         destination = os.path.join(self.top_level, file_spec['external_name'])
         to_be_retrieved = os.path.join(destination, file_spec['relative_path'])
@@ -277,7 +273,7 @@ class RetrieverTestCase(unittest.TestCase):
 
         server = file_spec['server']['server']
         retrieve_method = RetrievalMode.STREAM
-        retriever = NGASFileRetriever(self.logfile, namespace)
+        retriever = NGASFileRetriever(namespace, self._LOG)
 
         destination = os.path.join(self.top_level, file_spec['external_name'])
         to_be_retrieved = os.path.join(destination,
@@ -296,7 +292,7 @@ class RetrieverTestCase(unittest.TestCase):
 
         server = 'foo'
         retrieve_method = RetrievalMode.STREAM
-        retriever = NGASFileRetriever(self.logfile, namespace)
+        retriever = NGASFileRetriever(namespace, self._LOG)
 
         destination = os.path.join(self.top_level, file_spec['external_name'])
         to_be_retrieved = os.path.join(destination, file_spec['relative_path'])
@@ -305,7 +301,7 @@ class RetrieverTestCase(unittest.TestCase):
         self.assertFalse(os.path.exists(to_be_retrieved),
                          'nothing should have been retrieved')
 
-    def test_local_copy_raises_service_error(self):
+    def test_local_copy_attempt_raises_service_error(self):
         ''' we can expect a copy ALWAYS to fail,
             because NGAS can't write to a local destination
         '''
@@ -317,7 +313,7 @@ class RetrieverTestCase(unittest.TestCase):
 
         server = file_spec['server']['server']
         retrieve_method = RetrievalMode.COPY
-        retriever = NGASFileRetriever(self.logfile, namespace)
+        retriever = NGASFileRetriever(namespace, self._LOG)
 
         destination = os.path.join(self.top_level, file_spec['external_name'])
         to_be_retrieved = os.path.join(destination, file_spec['relative_path'])
@@ -337,7 +333,7 @@ class RetrieverTestCase(unittest.TestCase):
         namespace = get_arg_parser().parse_args(args)
 
         server = file_spec['server']['server']
-        retriever = NGASFileRetriever(self.logfile, namespace)
+        retriever = NGASFileRetriever(namespace, self._LOG)
         destination = os.path.join(self.top_level, file_spec['relative_path'])
         retriever.retrieve(server, RetrievalMode.STREAM, file_spec)
         self.assertTrue(os.path.exists(destination))
@@ -354,26 +350,11 @@ class RetrieverTestCase(unittest.TestCase):
         namespace = get_arg_parser().parse_args(args)
 
         server = file_spec['server']['server']
-        retriever = NGASFileRetriever(self.logfile, namespace)
+        retriever = NGASFileRetriever(namespace, self._LOG)
 
         with pytest.raises(Exception):
             retriever.retrieve(server, RetrievalMode.STREAM, file_spec)
         self.assertEqual(MAX_TRIES, retriever.num_tries)
-
-    def test_retryer_actually_retries(self):
-        retryer = Retryer(
-            self.do_something_once, MAX_TRIES, SLEEP_INTERVAL_SECONDS)
-        retryer.retry('I am doing something once')
-        self.assertEqual(1, retryer.num_tries)
-
-        retryer = Retryer(
-            self.do_something_wrong, MAX_TRIES, SLEEP_INTERVAL_SECONDS)
-
-        with pytest.raises(Exception):
-            retryer.retry('This will never work')
-
-        self.assertEqual(MAX_TRIES, retryer.num_tries,
-                         'expecting maximum number of retries')
 
 
     # --------------------------------------------------------------------------
@@ -383,21 +364,14 @@ class RetrieverTestCase(unittest.TestCase):
     # --------------------------------------------------------------------------
 
     @staticmethod
-    def do_something_once(arg):
-        ''' the argument is a placeholder '''
-        return 1
-
-    @staticmethod
     def do_something_wrong(args: List):
         raise NGASServiceErrorException(args)
 
     @staticmethod
-    def do_something_a_few_times(num_tries: int):
-        if _A_FEW_TRIES > num_tries:
-            raise NGASServiceErrorException(num_tries)
-        return num_tries
+    def do_something_a_few_times(args: List):
+        return int(args[0])
 
-    def _initialize_13B_014_test_data(self):
+    def _initialize_13b_014_file_spec(self):
         ext_name = '13B-014.sb29151475.eb29223944.56810.442529050924'
         product_locator = ProductLocatorLookup(self.db_settings)\
             .look_up_locator_for_ext_name(ext_name)
